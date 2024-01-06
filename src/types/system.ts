@@ -1,5 +1,7 @@
 import {SystemResults} from '@/lib/system';
 import {World} from './world';
+import {Key} from './updateable';
+import {Entity} from './entity';
 
 export type System = (world: World) => SystemResults;
 
@@ -7,8 +9,9 @@ export type ChangeType = 'add' | 'delete' | 'set' | 'update';
 
 export type SystemChange<T> = {
   method: ChangeType;
-  path: (string | number | symbol)[];
+  path: Key[];
   value?: T | T[] | ((v: T) => T);
+  ids?: Entity | Entity[];
 };
 
 export type QueryOptions = {};
@@ -27,4 +30,6 @@ export type QueryResponse<T extends any[]> = {
   options: QueryOptions;
 };
 
-export type QueryHandler<T> = (request: QueryResponse<T>) => SystemResults;
+export type QueryHandler<T extends any[]> = (
+  request: QueryResponse<T>
+) => SystemResults;

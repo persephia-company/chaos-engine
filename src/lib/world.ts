@@ -1,13 +1,15 @@
 import {Entity} from '@/types/entity';
 import {ComponentStore} from '@/types/store';
 import {System, SystemChange} from '@/types/system';
-import {World, ReservedStages} from '@/types/world';
+import {ReservedStages} from '@/types/world';
 import * as R from 'ramda';
 import {DepGraph} from 'dependency-graph';
 import stringify from 'json-stable-stringify';
-import {groupBy, hash_cyrb53} from './util';
+import {groupBy, hash_cyrb53, wrap} from './util';
 import {Queue} from '@datastructures-js/queue';
-import {SystemResults} from './system';
+import {SystemResults, createSystemChange} from './system';
+import {Key, Updateable} from '@/types/updateable';
+import {createComponentStore} from './store';
 
 enum ReservedKeys {
   GAME_SHOULD_QUIT = 'game-should-quit',
@@ -17,142 +19,328 @@ enum ReservedKeys {
   SYSTEM_DEPENDENCY_HASH = 'system-dependency-hash',
   SYSTEM_BATCHES = 'system-batches',
   STAGE_DEPENDENCIES = 'stage-dependencies',
+  RAW_CHANGES = 'raw-changes',
 }
 
-/**
- * Returns all entities within the world.
- */
-export const getEntities = (world: World): Entity[] => [];
+export class World implements Updateable<unknown> {
+  components: Record<string, ComponentStore<unknown>>;
+  events: Record<string, unknown[]>;
+  resources: Record<string, unknown>;
 
-/**
- * Returns an id that would represent a new entity within the world.
- */
-export const createEntity = (world: World): Entity => 1;
-
-export const setResource = R.curry(<T>(key: string, value: T, world: World) => {
-  return R.assocPath(['resources', key], value, world);
-});
-
-export const getResourceOr = R.curry(
-  <T>(otherwise: T | undefined, key: string, world: World): T | undefined => {
-    return R.pathOr(otherwise, ['resources', key], world);
+  constructor(state: Partial<World> = {}) {
+    this.components = state.components ?? {};
+    this.events = state.events ?? {};
+    this.resources = state.resources ?? {};
   }
-);
 
-export const getResource = getResourceOr(undefined);
-
-export const getEvents = <T>(key: string, world: World): T[] => {
-  return R.pathOr([], ['events', key], world);
-};
-
-/**
- * Returns a map of stages to their included systems within the world
- */
-export const getSystems: (world: World) => Record<string, Set<System>> =
-  getResourceOr({} as Record<string, Set<System>>, ReservedKeys.SYSTEMS);
-
-/**
- * Returns a map of systems to their dependencies
- */
-export const getSystemDependencies: (
-  world: World
-) => Record<string, Set<string>> = getResourceOr(
-  {} as Record<string, Set<string>>,
-  ReservedKeys.SYSTEM_DEPENDENCIES
-);
-
-/**
- * Adds a new System to the world.
- */
-export const addSystem = (
-  world: World,
-  system: System,
-  stage: string = ReservedStages.UPDATE
-) => {
-  const systems = getSystems(world);
-  const stageSystems: Set<System> = R.propOr(new Set<System>(), stage, systems);
-  stageSystems.add(system);
-
-  const updateSystems = R.assocPath(['resources', ReservedKeys.SYSTEMS]);
-  return updateSystems(R.assoc(stage, stageSystems, systems), world);
-};
-
-export const addSystemDependency = (
-  world: World,
-  system: System,
-  dependency: System
-): World => {
-  const dependencies = getSystemDependencies(world);
-  const systemDependencies: Set<string> = R.propOr(
-    new Set<string>(),
-    system.name,
-    dependencies
-  );
-  systemDependencies.add(dependency.name);
-
-  const updateDependencies = R.assocPath([
-    'resources',
-    ReservedKeys.SYSTEM_DEPENDENCIES,
-  ]);
-  return updateDependencies(
-    R.assoc(system.name, systemDependencies, dependencies),
-    world
-  );
-};
-
-export const addStageDependency = (
-  world: World,
-  stage: string,
-  dependency: string
-): World => {
-  const dependencies = getSystemDependencies(world);
-  const stageDependencies: Set<string> = R.propOr(
-    new Set<string>(),
-    stage,
-    dependencies
-  );
-  stageDependencies.add(dependency);
-
-  const updateDependencies = R.assocPath([
-    'resources',
-    ReservedKeys.STAGE_DEPENDENCIES,
-  ]);
-  return updateDependencies(
-    R.assoc(stage, stageDependencies, dependencies),
-    world
-  );
-};
-
-/**
- * Queries the world for all supplied components
- */
-export const query = <T extends any[]>(
-  world: World,
-  components: string[]
-): T[] => {
-  const componentStores = components
-    .map(component => world.components[component])
-    .filter(store => store !== undefined);
-
-  if (componentStores.length !== components.length || components.length === 0) {
+  /**
+   * Returns all entities within the world.
+   */
+  getEntities(): Entity[] {
     return [];
   }
 
-  const sortedStores = R.sortBy(x => x.length(), componentStores);
-  // Get ids from smallest store
-  const ids = sortedStores[0].getItems().map(([id, _]) => id);
-  const otherStores = R.drop(1, sortedStores);
+  createEntity(): Entity {
+    return 1;
+  }
 
-  const intersectingIds = (ids: number[], store: ComponentStore<unknown>) => {
-    return ids.filter(id => store.hasEntity(id));
+  setResource = R.curry(<T>(key: string, value: T) => {
+    return R.assocPath(['resources', key], value, this);
+  });
+
+  getResourceOr = R.curry(
+    <T>(otherwise: T | undefined, key: string): T | undefined => {
+      return R.pathOr(otherwise, ['resources', key], this);
+    }
+  );
+
+  getResource: <T>(key: string) => T | undefined =
+    this.getResourceOr(undefined);
+
+  getEvents = <T>(key: string): T[] => {
+    return R.pathOr([], ['events', key], this);
   };
-  const sharedIds = R.reduce(intersectingIds, ids, otherStores);
 
-  const buildTuple = (id: number) =>
-    R.map(store => store.getComponent(id), componentStores);
+  /**
+   * Returns a map of stages to their included systems within the world
+   */
+  getSystems: () => Record<string, Set<System>> = this.getResourceOr(
+    {} as Record<string, Set<System>>,
+    ReservedKeys.SYSTEMS
+  );
 
-  return R.map(buildTuple, sharedIds) as T[];
-};
+  /**
+   * Returns a map of systems to their dependencies
+   */
+  getSystemDependencies: () => Record<string, Set<string>> = this.getResourceOr(
+    {} as Record<string, Set<string>>,
+    ReservedKeys.SYSTEM_DEPENDENCIES
+  );
+
+  /**
+   * Adds a new System to the world.
+   */
+  addSystem = (system: System, stage: string = ReservedStages.UPDATE) => {
+    const systems = this.getSystems();
+    const stageSystems: Set<System> = R.propOr(
+      new Set<System>(),
+      stage,
+      systems
+    );
+    stageSystems.add(system);
+
+    const updateSystems = this.setResource(ReservedKeys.SYSTEMS);
+    return updateSystems(R.assoc(stage, stageSystems, systems));
+  };
+
+  addSystemDependency = (system: System, dependency: System): World => {
+    const dependencies = this.getSystemDependencies();
+    const systemDependencies: Set<string> = R.propOr(
+      new Set<string>(),
+      system.name,
+      dependencies
+    );
+    systemDependencies.add(dependency.name);
+
+    const updateDependencies = this.setResource(
+      ReservedKeys.SYSTEM_DEPENDENCIES
+    );
+    return updateDependencies(
+      R.assoc(system.name, systemDependencies, dependencies)
+    );
+  };
+
+  addStageDependency = (stage: string, dependency: string): World => {
+    const dependencies = this.getSystemDependencies();
+    const stageDependencies: Set<string> = R.propOr(
+      new Set<string>(),
+      stage,
+      dependencies
+    );
+    stageDependencies.add(dependency);
+
+    const updateStageDependencies = this.setResource(
+      ReservedKeys.STAGE_DEPENDENCIES
+    );
+    return updateStageDependencies(
+      R.assoc(stage, stageDependencies, dependencies)
+    );
+  };
+
+  /**
+   * Queries the world for all supplied components
+   */
+  query = <T extends any[]>(components: string[]): T[] => {
+    const componentStores = components
+      .map(component => this.components[component])
+      .filter(store => store !== undefined);
+
+    if (
+      componentStores.length !== components.length ||
+      components.length === 0
+    ) {
+      return [];
+    }
+
+    const sortedStores = R.sortBy(x => x.length(), componentStores);
+    // Get ids from smallest store
+    const ids = sortedStores[0].getItems().map(([id, _]) => id);
+    const otherStores = R.drop(1, sortedStores);
+
+    const intersectingIds = (ids: number[], store: ComponentStore<unknown>) => {
+      return ids.filter(id => store.hasEntity(id));
+    };
+    const sharedIds = R.reduce(intersectingIds, ids, otherStores);
+
+    const buildTuple = (id: number) =>
+      R.map(store => store.getComponent(id), componentStores);
+
+    return R.map(buildTuple, sharedIds) as T[];
+  };
+
+  buildSystemDependencyGraph = () => {
+    const systems = Object.values(this.getSystems())
+      .flatMap(s => Array.from(s.values()))
+      .map(system => system.name);
+
+    const dependencies = this.getSystemDependencies();
+    return buildDependencyGraph(systems, dependencies);
+  };
+
+  hashSystems = (): number => {
+    const systems = Object.values(this.getSystems())
+      .flatMap(s => Array.from(s.values()))
+      .map(system => system.name);
+
+    const rawDependencies = this.getSystemDependencies();
+    const dependencies = Object.fromEntries(
+      Object.entries(rawDependencies).map(([node, deps]) => [
+        node,
+        Array.from(deps.values()),
+      ])
+    );
+    return hash_cyrb53(stringify({systems, dependencies}));
+  };
+
+  private isSystemGraphCurrent = (): boolean => {
+    return (
+      this.getResource(ReservedKeys.SYSTEM_DEPENDENCY_HASH) ===
+      this.hashSystems()
+    );
+  };
+
+  buildStageBatches = (): Record<string, System[][]> => {
+    const systems = this.getSystems();
+    const graph = this.getResource(
+      ReservedKeys.SYSTEM_DEPENDENCY_GRAPH
+    ) as DepGraph<string>;
+
+    const buildStageBatch = (stage: string): System[][] => {
+      const stageSystems = Array.from((systems[stage] ?? new Set()).values());
+      const depths = findDepths(stageSystems, graph);
+      const systemsByDepth = groupBy(a => a[1], Object.entries(depths));
+
+      const x = R.sortBy(
+        ([depth, _]) => Number.parseInt(depth),
+        Object.entries(systemsByDepth)
+      );
+
+      const result: System[][] = [];
+      x.forEach(([_, group]) => {
+        const systems: System[] = [];
+        group.forEach(([name, _]) => {
+          const system = stageSystems.find(system => system.name === name);
+          if (system) {
+            systems.push(system);
+          }
+        });
+        result.push(systems);
+      });
+      return result;
+    };
+
+    const addStageBatch = (result: Record<string, System[][]>, stage: string) =>
+      R.assoc(stage, buildStageBatch(stage), result);
+
+    return R.reduce(addStageBatch, {}, Object.keys(systems));
+  };
+
+  applyStage = (stage: string): World => {
+    const systems = this.getSystems()[stage];
+    if (!systems) return this;
+
+    let world = new World({...this});
+    // Check if system dependency graph is up to date
+    // Rebuild if needed
+    if (!this.isSystemGraphCurrent()) {
+      const graph = this.buildSystemDependencyGraph();
+      const stageBatches = world.buildStageBatches();
+
+      world = world.setResource(ReservedKeys.SYSTEM_DEPENDENCY_GRAPH, graph);
+      world = world.setResource(ReservedKeys.SYSTEM_BATCHES, stageBatches);
+    }
+
+    const stageBatches = world.getResource(
+      ReservedKeys.SYSTEM_BATCHES
+    ) as Record<string, System[][]>;
+
+    const batches = stageBatches[stage];
+    if (!batches) return world;
+
+    return R.reduce(World.applySystems, world, batches);
+  };
+
+  static applySystems = (world: World, batch: System[]): World => {
+    const applySystem = (world: World, system: System) => {
+      return world.applySystemResults(system(world));
+    };
+    return R.reduce(applySystem, world, batch);
+  };
+
+  applySystemResults = (results: SystemResults): World => {
+    const applyChange = (
+      world: World,
+      change: SystemChange<unknown>
+    ): World => {
+      // Appends each raw change as a new event for plugins to inspect
+      world = world.add(['events', ReservedKeys.RAW_CHANGES], change);
+      const fn = world[change.method];
+
+      return fn(change.path, change.value as any);
+    };
+
+    return R.reduce(applyChange, this, results.changes);
+  };
+
+  step = (world: World): World => {
+    return world;
+  };
+
+  isFinished = (world: World): boolean => {
+    return this.getResourceOr(false, ReservedKeys.GAME_SHOULD_QUIT);
+  };
+
+  getComponentStore<T>(key: string): ComponentStore<T> {
+    return (
+      (this.components[key] as ComponentStore<T> | undefined) ??
+      createComponentStore<T>()
+    );
+  }
+
+  forwardToComponents(change: SystemChange<unknown>): World {
+    const {method, path, value} = change;
+    if (path.length < 2) {
+      console.warn('Invalid change: ', change);
+      return this;
+    }
+    const component = path[1];
+    const remainingPath = R.drop(2, path);
+    let store = this.getComponentStore(component as string);
+    store = store[method](remainingPath, value as any);
+
+    let entities = this.getComponentStore<Entity>('id');
+    const ids = wrap(change.ids);
+    entities = R.reduce(
+      (store: typeof entities, id: Entity) => store.insert(id, id),
+      entities,
+      ids
+    );
+    const result: World = R.assocPath(['components', component], store, this);
+    return R.assocPath(['components', 'id'], entities, result);
+  }
+
+  add(path: Key[], ...values: unknown[]): World {
+    if (path[0] === 'components') {
+      return this.forwardToComponents(createSystemChange('add', path, values));
+    } else {
+      return R.assocPath(path, values, this);
+    }
+  }
+
+  delete(path: Key[], ...values: unknown[]): World {
+    if (path[0] === 'components') {
+      return this.forwardToComponents(
+        createSystemChange('delete', path, values)
+      );
+    } else {
+      return R.modifyPath(path, R.omit(values as string[]), this);
+    }
+  }
+  update(path: Key[], f: (value: unknown) => unknown): World {
+    if (path[0] === 'components') {
+      return this.forwardToComponents(createSystemChange('update', path, f));
+    } else {
+      return R.modifyPath(path, f, this);
+    }
+  }
+  set(path: Key[], ...values: unknown[]): World {
+    if (path[0] === 'components') {
+      return this.forwardToComponents(createSystemChange('add', path, values));
+    } else {
+      return R.assocPath(path, values, this);
+    }
+  }
+}
 
 const buildDependencyGraph = (
   nodes: string[],
@@ -166,77 +354,6 @@ const buildDependencyGraph = (
   });
 
   return result;
-};
-
-const rebuildSystemDependencyGraph = (world: World): World => {
-  const systems = Object.values(getSystems(world))
-    .flatMap(s => Array.from(s.values()))
-    .map(system => system.name);
-
-  const dependencies = getSystemDependencies(world);
-  const graph = buildDependencyGraph(systems, dependencies);
-
-  return setResource(ReservedKeys.SYSTEM_DEPENDENCY_GRAPH, graph, world);
-};
-
-const hashSystems = (world: World): number => {
-  const systems = Object.values(getSystems(world))
-    .flatMap(s => Array.from(s.values()))
-    .map(system => system.name);
-
-  const rawDependencies = getSystemDependencies(world);
-  const dependencies = Object.fromEntries(
-    Object.entries(rawDependencies).map(([node, deps]) => [
-      node,
-      Array.from(deps.values()),
-    ])
-  );
-  return hash_cyrb53(stringify({systems, dependencies}));
-};
-
-const isSystemGraphCurrent = (world: World): boolean => {
-  return (
-    getResource(ReservedKeys.SYSTEM_DEPENDENCY_HASH, world) ===
-    hashSystems(world)
-  );
-};
-
-const buildStageBatches = (world: World): World => {
-  const systems = getSystems(world);
-  const graph = getResource(
-    ReservedKeys.SYSTEM_DEPENDENCY_GRAPH,
-    world
-  ) as DepGraph<string>;
-
-  const buildStageBatch = (stage: string): System[][] => {
-    const stageSystems = Array.from((systems[stage] ?? new Set()).values());
-    const depths = findDepths(stageSystems, graph);
-    const systemsByDepth = groupBy(a => a[1], Object.entries(depths));
-
-    const x = R.sortBy(
-      ([depth, _]) => Number.parseInt(depth),
-      Object.entries(systemsByDepth)
-    );
-
-    const result: System[][] = [];
-    x.forEach(([_, group]) => {
-      const systems: System[] = [];
-      group.forEach(([name, _]) => {
-        const system = stageSystems.find(system => system.name === name);
-        if (system) {
-          systems.push(system);
-        }
-      });
-      result.push(systems);
-    });
-    return result;
-  };
-
-  const addStageBatch = (result: Record<string, System[][]>, stage: string) =>
-    R.assoc(stage, buildStageBatch(stage), result);
-
-  const systemBatches = R.reduce(addStageBatch, {}, Object.keys(systems));
-  return setResource(ReservedKeys.SYSTEM_BATCHES, systemBatches, world);
 };
 
 const findDepths = (
@@ -266,47 +383,4 @@ const findDepths = (
     result[system] = depth;
   }
   return result;
-};
-
-export const applyStage = (world: World, stage: string): World => {
-  const systems = getSystems(world)[stage] ?? new Set<System>();
-  if (systems.size === 0) return world;
-
-  // Check if system dependency graph is up to date
-  // Rebuild if needed
-  if (!isSystemGraphCurrent(world)) {
-    world = rebuildSystemDependencyGraph(world);
-    world = buildStageBatches(world);
-  }
-
-  const stageBatches = getResource(
-    ReservedKeys.SYSTEM_BATCHES,
-    world
-  ) as Record<string, System[][]>;
-
-  const batches = stageBatches[stage];
-  if (!batches) return world;
-
-  return R.reduce(applySystems, world, batches);
-};
-
-const applySystems = (world: World, batch: System[]): World => {
-  const applySystem = (world: World, system: System) => {
-    return applySystemResults(world, system(world));
-  };
-  return R.reduce(applySystem, world, batch);
-};
-
-const applySystemResults = (world: World, results: SystemResults): World => {
-  const applyChange = (world: World, change: SystemChange): World => {};
-
-  return R.reduce(applyChange, world, results.changes);
-};
-
-export const step = (world: World): World => {
-  return world;
-};
-
-export const isFinished = (world: World): boolean => {
-  return getResourceOr(false, ReservedKeys.GAME_SHOULD_QUIT, world);
 };

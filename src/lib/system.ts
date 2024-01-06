@@ -6,13 +6,12 @@ import {
 } from '@/types/system';
 
 import * as R from 'ramda';
-import {Updateable} from '@/types/updateable';
-import {query} from './world';
-import {World} from '@/types/world';
+import {Key, Updateable} from '@/types/updateable';
+import {World} from '@/lib/world';
 
 export const createSystemChange = <T>(
   method: ChangeType,
-  path: (string | number | symbol)[],
+  path: Key[],
   value: SystemChange<T>['value']
 ) => {
   return {method, path, value};
@@ -25,24 +24,28 @@ export class SystemResults implements Updateable<unknown> {
     this.changes = changes;
   }
 
-  add(path: string[], ...values: unknown[]): SystemResults {
+  addChange(change: SystemChange<unknown>): SystemResults {
+    return new SystemResults([...this.changes, change]);
+  }
+
+  add(path: Key[], ...values: unknown[]): SystemResults {
     const change = createSystemChange('add', path, values);
-    return new SystemResults(R.append(change, this.changes));
+    return this.addChange(change);
   }
 
-  set(path: string[], ...values: unknown[]): SystemResults {
+  set(path: Key[], ...values: unknown[]): SystemResults {
     const change = createSystemChange('set', path, values);
-    return new SystemResults(R.append(change, this.changes));
+    return this.addChange(change);
   }
 
-  update(path: string[], f: (value: unknown) => unknown): SystemResults {
+  update(path: Key[], f: (value: unknown) => unknown): SystemResults {
     const change = createSystemChange('update', path, f);
-    return new SystemResults(R.append(change, this.changes));
+    return this.addChange(change);
   }
 
-  delete(path: string[], ...values: unknown[]): SystemResults {
+  delete(path: Key[], ...values: unknown[]): SystemResults {
     const change = createSystemChange('delete', path, values);
-    return new SystemResults(R.append(change, this.changes));
+    return this.addChange(change);
   }
 }
 
@@ -50,7 +53,7 @@ export const defsys =
   <C extends any[]>(request: Partial<QueryRequest>, handler: QueryHandler<C>) =>
   (world: World) => {
     const components = request.components
-      ? query<C>(world, request.components)
+      ? world.query<C>(request.components)
       : [];
     const resources = R.pick(request.resources ?? [], world.resources);
     const events = R.pick(request.events ?? [], world.events);

@@ -34,3 +34,9 @@ export const createFactory =
   (updates: Partial<T> = {}): T => {
     return {...base, ...updates};
   };
+
+export const wrap = <T>(x: T | T[] | undefined): T[] => {
+  if (!x) return [];
+  if (Array.isArray(x)) return x;
+  return [x];
+};
