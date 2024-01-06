@@ -1,6 +1,6 @@
 import {Entity} from '@/types/entity';
 import {ComponentStore} from '@/types/store';
-import {System} from '@/types/system';
+import {System, SystemChange} from '@/types/system';
 import {World, ReservedStages} from '@/types/world';
 import * as R from 'ramda';
 import {DepGraph} from 'dependency-graph';
@@ -298,7 +298,9 @@ const applySystems = (world: World, batch: System[]): World => {
 };
 
 const applySystemResults = (world: World, results: SystemResults): World => {
-  return world;
+  const applyChange = (world: World, change: SystemChange): World => {};
+
+  return R.reduce(applyChange, world, results.changes);
 };
 
 export const step = (world: World): World => {
@@ -308,5 +310,3 @@ export const step = (world: World): World => {
 export const isFinished = (world: World): boolean => {
   return getResourceOr(false, ReservedKeys.GAME_SHOULD_QUIT, world);
 };
-
-const defsys = () => {};

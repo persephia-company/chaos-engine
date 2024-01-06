@@ -1,8 +1,14 @@
-import {SystemChange, ChangeType} from '@/types/system';
-import {createFactory} from './util';
+import {
+  SystemChange,
+  ChangeType,
+  QueryRequest,
+  QueryHandler,
+} from '@/types/system';
 
 import * as R from 'ramda';
 import {Updateable} from '@/types/updateable';
+import {query} from './world';
+import {World} from '@/types/world';
 
 export const createSystemChange = <T>(
   method: ChangeType,
@@ -12,7 +18,6 @@ export const createSystemChange = <T>(
   return {method, path, value};
 };
 
-// TODO: very sus might have to check this works nicely
 export class SystemResults implements Updateable<unknown> {
   changes: SystemChange<unknown>[];
 
@@ -40,3 +45,25 @@ export class SystemResults implements Updateable<unknown> {
     return new SystemResults(R.append(change, this.changes));
   }
 }
+
+export const defsys =
+  <C extends any[]>(request: Partial<QueryRequest>, handler: QueryHandler<C>) =>
+  (world: World) => {
+    const components = request.components
+      ? query<C>(world, request.components)
+      : [];
+    const resources = R.pick(request.resources ?? [], world.resources);
+    const events = R.pick(request.events ?? [], world.events);
+    const options = request.options ?? {};
+
+    // If this system depends on events that we don't have, exit.
+    if (
+      request.events &&
+      request.events.length > 0 &&
+      R.none(a => a.length > 0, Object.values(events))
+    ) {
+      return new SystemResults();
+    }
+
+    return handler({components, resources, events, options});
+  };
