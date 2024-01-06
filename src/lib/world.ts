@@ -1,12 +1,13 @@
 import {Entity} from '@/types/entity';
 import {ComponentStore} from '@/types/store';
-import {System, SystemResults} from '@/types/system';
+import {System} from '@/types/system';
 import {World, ReservedStages} from '@/types/world';
 import * as R from 'ramda';
 import {DepGraph} from 'dependency-graph';
 import stringify from 'json-stable-stringify';
 import {groupBy, hash_cyrb53} from './util';
 import {Queue} from '@datastructures-js/queue';
+import {SystemResults} from './system';
 
 enum ReservedKeys {
   GAME_SHOULD_QUIT = 'game-should-quit',
@@ -289,17 +290,14 @@ export const applyStage = (world: World, stage: string): World => {
   return R.reduce(applySystems, world, batches);
 };
 
-export const applySystems = (world: World, batch: System[]): World => {
+const applySystems = (world: World, batch: System[]): World => {
   const applySystem = (world: World, system: System) => {
     return applySystemResults(world, system(world));
   };
   return R.reduce(applySystem, world, batch);
 };
 
-export const applySystemResults = (
-  world: World,
-  results: SystemResults
-): World => {
+const applySystemResults = (world: World, results: SystemResults): World => {
   return world;
 };
 

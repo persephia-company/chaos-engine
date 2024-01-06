@@ -1,4 +1,3 @@
-import {Queue} from '@datastructures-js/queue';
 import * as R from 'ramda';
 
 export const hash_cyrb53 = (str: string, seed = 0) => {
