@@ -1,6 +1,5 @@
 import {SystemResults, defsys} from '@/lib/system';
-import {first, second} from '@/lib/util';
-import {Entity} from '@/types/entity';
+import {first} from '@/lib/util';
 import {range, repeat} from 'ramda';
 
 export class Timer<T> {
