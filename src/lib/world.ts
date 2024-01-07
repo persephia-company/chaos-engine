@@ -9,7 +9,7 @@ import {groupBy, hash_cyrb53, wrap} from './util';
 import {Queue} from '@datastructures-js/queue';
 import {SystemResults, createSystemChange} from './system';
 import {Key, Updateable} from '@/types/updateable';
-import {createComponentStore} from './store';
+import {SparseComponentStore} from './store';
 
 enum ReservedKeys {
   GAME_SHOULD_QUIT = 'game-should-quit',
@@ -158,7 +158,7 @@ export class World implements Updateable<unknown> {
     return R.map(buildTuple, sharedIds) as T[];
   };
 
-  buildSystemDependencyGraph = () => {
+  private buildSystemDependencyGraph = () => {
     const systems = Object.values(this.getSystems())
       .flatMap(s => Array.from(s.values()))
       .map(system => system.name);
@@ -167,7 +167,7 @@ export class World implements Updateable<unknown> {
     return buildDependencyGraph(systems, dependencies);
   };
 
-  hashSystems = (): number => {
+  private hashSystems = (): number => {
     const systems = Object.values(this.getSystems())
       .flatMap(s => Array.from(s.values()))
       .map(system => system.name);
@@ -189,7 +189,7 @@ export class World implements Updateable<unknown> {
     );
   };
 
-  buildStageBatches = (): Record<string, System[][]> => {
+  private buildStageBatches = (): Record<string, System[][]> => {
     const systems = this.getSystems();
     const graph = this.getResource(
       ReservedKeys.SYSTEM_DEPENDENCY_GRAPH
@@ -247,14 +247,19 @@ export class World implements Updateable<unknown> {
     const batches = stageBatches[stage];
     if (!batches) return world;
 
-    return R.reduce(World.applySystems, world, batches);
+    const applySystems = (world: World, batch: System[]): World => {
+      return R.reduce(
+        (world, system) => world.applySystem(system),
+        world,
+        batch
+      );
+    };
+
+    return R.reduce(applySystems, world, batches);
   };
 
-  static applySystems = (world: World, batch: System[]): World => {
-    const applySystem = (world: World, system: System) => {
-      return world.applySystemResults(system(world));
-    };
-    return R.reduce(applySystem, world, batch);
+  applySystem = (system: System) => {
+    return this.applySystemResults(system(this));
   };
 
   applySystemResults = (results: SystemResults): World => {
@@ -276,14 +281,14 @@ export class World implements Updateable<unknown> {
     return world;
   };
 
-  isFinished = (world: World): boolean => {
+  isFinished = (): boolean => {
     return this.getResourceOr(false, ReservedKeys.GAME_SHOULD_QUIT);
   };
 
   getComponentStore<T>(key: string): ComponentStore<T> {
     return (
       (this.components[key] as ComponentStore<T> | undefined) ??
-      createComponentStore<T>()
+      new SparseComponentStore()
     );
   }
 
@@ -309,7 +314,11 @@ export class World implements Updateable<unknown> {
     return R.assocPath(['components', 'id'], entities, result);
   }
 
-  add(path: Key[], ...values: unknown[]): World {
+  add(
+    path: Key[],
+    values?: unknown | unknown[],
+    ids?: number | number[]
+  ): World {
     if (path[0] === 'components') {
       return this.forwardToComponents(createSystemChange('add', path, values));
     } else {
