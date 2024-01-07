@@ -1,5 +1,5 @@
 import {SystemResults} from '@/lib/system';
-import {World} from './world';
+import {World} from '@/lib/world';
 import {Key} from './updateable';
 import {Entity} from './entity';
 
@@ -32,4 +32,4 @@ export type QueryResponse<T extends any[]> = {
 
 export type QueryHandler<T extends any[]> = (
   request: QueryResponse<T>
-) => SystemResults<unknown>;
+) => SystemResults<any>;

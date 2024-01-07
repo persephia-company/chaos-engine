@@ -35,8 +35,21 @@ export const createFactory =
     return {...base, ...updates};
   };
 
+export const createFactoryWithCallback =
+  <T>(base: () => T) =>
+  (updates: Partial<T> = {}): T => {
+    return {...base(), ...updates};
+  };
 export const wrap = <T>(x: T | T[] | undefined): T[] => {
   if (!x) return [];
   if (Array.isArray(x)) return x;
   return [x];
 };
+
+export const last = R.nth(-1);
+export const first = R.nth(0);
+export const second = R.nth(1);
+export const third = R.nth(2);
+export const fourth = R.nth(3);
+export const fifth = R.nth(4);
+export const sixth = R.nth(5);

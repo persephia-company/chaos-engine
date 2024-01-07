@@ -1,6 +1,3 @@
-import {ComponentStore} from './store';
-import {Updateable} from './updateable';
-
 export enum ReservedStages {
   START_UP = 'start-up',
   PRE_STEP = 'pre-step',
@@ -12,9 +9,3 @@ export enum ReservedStages {
 }
 
 export type DataType = 'component' | 'event' | 'resource';
-
-export interface World extends Updateable<unknown> {
-  components: Record<string, ComponentStore<unknown>>;
-  events: Record<string, unknown[]>;
-  resources: Record<string, unknown>;
-}

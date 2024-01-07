@@ -74,10 +74,20 @@ export class World implements Updateable<unknown> {
   /**
    * Returns a map of systems to their dependencies
    */
-  getSystemDependencies: () => Record<string, Set<string>> = this.getResourceOr(
-    {} as Record<string, Set<string>>,
-    ReservedKeys.SYSTEM_DEPENDENCIES
-  );
+  private getSystemDependencies: () => Record<string, Set<string>> =
+    this.getResourceOr(
+      {} as Record<string, Set<string>>,
+      ReservedKeys.SYSTEM_DEPENDENCIES
+    );
+
+  /**
+   * Returns a map of stages to their dependencies
+   */
+  private getStageDependencies: () => Record<string, Set<string>> =
+    this.getResourceOr(
+      {} as Record<string, Set<string>>,
+      ReservedKeys.STAGE_DEPENDENCIES
+    );
 
   /**
    * Adds a new System to the world.
@@ -279,13 +289,45 @@ export class World implements Updateable<unknown> {
     return R.reduce(applyChange, this, results.changes);
   };
 
-  step = (world: World): World => {
-    return world;
+  private buildStageDependencyGraph = () => {
+    const stages = Object.keys(this.getSystems());
+
+    const dependencies = this.getStageDependencies();
+    return buildDependencyGraph(stages, dependencies);
+  };
+
+  step = (): World => {
+    // TODO: Cache this
+    const graph = this.buildStageDependencyGraph();
+    const stageOrder = graph
+      .overallOrder()
+      .filter(
+        stage => !(Object.values(ReservedStages) as string[]).includes(stage)
+      );
+
+    let world = this.applyStage(ReservedStages.PRE_STEP);
+    world = world.applyStage(ReservedStages.UPDATE);
+    // Perform user defined stages.
+    world = R.reduce(
+      (world, stage) => world.applyStage(stage),
+      world,
+      stageOrder
+    );
+    return world.applyStage(ReservedStages.POST_STEP);
   };
 
   isFinished = (): boolean => {
     return this.getResourceOr(false, ReservedKeys.GAME_SHOULD_QUIT);
   };
+
+  play() {
+    // TODO: Make not functional
+    let world = this.applyStage(ReservedStages.START_UP);
+    while (!world.isFinished()) {
+      world = world.step();
+    }
+    return world.applyStage(ReservedStages.TEAR_DOWN);
+  }
 
   getComponentStore<T>(key: string): ComponentStore<T> {
     return (

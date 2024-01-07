@@ -9,6 +9,19 @@ import * as R from 'ramda';
 import {Key, Updateable} from '@/types/updateable';
 import {World} from '@/lib/world';
 
+/**
+ * Returns the unique identifier used for changeEvents of a specific key and method.
+ *
+ * Useful in conjunction with @see defsys, to specify that a system is dependent on a
+ * certain changeEvent, e.g. run this system every time the player's health changes.
+ *
+ * @example
+ * defsys({events: [changeEventName('update', 'player-hp')]}, ...etc)
+ */
+export const changeEventName = (method: ChangeType, key: string) => {
+  return `${method}--${key}`;
+};
+
 export const createSystemChange = <T>(
   method: ChangeType,
   path: Key[],
@@ -27,6 +40,10 @@ export class SystemResults<T> implements Updateable<T> {
 
   addChange(change: SystemChange<T>): SystemResults<T> {
     return new SystemResults([...this.changes, change]);
+  }
+
+  merge(results: SystemResults<any>): SystemResults<any> {
+    return new SystemResults(this.changes.concat(results.changes));
   }
 
   add(path: Key[], values: T | T[], ids?: number | number[]): SystemResults<T> {
