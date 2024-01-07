@@ -12,39 +12,49 @@ import {World} from '@/lib/world';
 export const createSystemChange = <T>(
   method: ChangeType,
   path: Key[],
-  value: SystemChange<T>['value']
-) => {
-  return {method, path, value};
+  value: SystemChange<T>['value'],
+  ids: SystemChange<T>['ids']
+): SystemChange<T> => {
+  return {method, path, value, ids};
 };
 
-export class SystemResults implements Updateable<unknown> {
-  changes: SystemChange<unknown>[];
+export class SystemResults<T> implements Updateable<T> {
+  changes: SystemChange<T>[];
 
-  constructor(changes: SystemChange<unknown>[] = []) {
+  constructor(changes: SystemChange<T>[] = []) {
     this.changes = changes;
   }
 
-  addChange(change: SystemChange<unknown>): SystemResults {
+  addChange(change: SystemChange<T>): SystemResults<T> {
     return new SystemResults([...this.changes, change]);
   }
 
-  add(path: Key[], ...values: unknown[]): SystemResults {
-    const change = createSystemChange('add', path, values);
+  add(path: Key[], values: T | T[], ids?: number | number[]): SystemResults<T> {
+    const change = createSystemChange('add', path, values, ids);
     return this.addChange(change);
   }
 
-  set(path: Key[], ...values: unknown[]): SystemResults {
-    const change = createSystemChange('set', path, values);
+  set(path: Key[], values: T | T[], ids?: number | number[]): SystemResults<T> {
+    const change = createSystemChange('set', path, values, ids);
     return this.addChange(change);
   }
 
-  update(path: Key[], f: (value: unknown) => unknown): SystemResults {
-    const change = createSystemChange('update', path, f);
+  update(
+    path: Key[],
+    f: (value: T) => T,
+    ids?: number | number[]
+  ): SystemResults<T> {
+    const change = createSystemChange('update', path, f, ids);
     return this.addChange(change);
   }
 
-  delete(path: Key[], ...values: unknown[]): SystemResults {
-    const change = createSystemChange('delete', path, values);
+  delete(
+    path: Key[],
+    values?: string | string[],
+    ids?: number | number[]
+  ): SystemResults<T> {
+    // TODO: the below typing isn't accurate but whatever.
+    const change = createSystemChange<T>('delete', path, values, ids);
     return this.addChange(change);
   }
 }
@@ -65,7 +75,7 @@ export const defsys =
       request.events.length > 0 &&
       R.none(a => a.length > 0, Object.values(events))
     ) {
-      return new SystemResults();
+      return new SystemResults<unknown>();
     }
 
     return handler({components, resources, events, options});

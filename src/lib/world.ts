@@ -37,16 +37,18 @@ export class World implements Updateable<unknown> {
    * Returns all entities within the world.
    */
   getEntities(): Entity[] {
-    return [];
+    return this.getComponentStore<Entity>('id').getComponents();
   }
 
   createEntity(): Entity {
-    return 1;
+    return 1; //TODO: yo we gotta fix this
   }
 
   setResource = R.curry(<T>(key: string, value: T) => {
     return R.assocPath(['resources', key], value, this);
   });
+
+  // TODO: Delete entity which cleans up all components
 
   getResourceOr = R.curry(
     <T>(otherwise: T | undefined, key: string): T | undefined => {
@@ -262,7 +264,7 @@ export class World implements Updateable<unknown> {
     return this.applySystemResults(system(this));
   };
 
-  applySystemResults = (results: SystemResults): World => {
+  applySystemResults = (results: SystemResults<unknown>): World => {
     const applyChange = (
       world: World,
       change: SystemChange<unknown>
@@ -271,7 +273,7 @@ export class World implements Updateable<unknown> {
       world = world.add(['events', ReservedKeys.RAW_CHANGES], change);
       const fn = world[change.method];
 
-      return fn(change.path, change.value as any);
+      return fn(change.path, change.value as any, change.ids as any);
     };
 
     return R.reduce(applyChange, this, results.changes);
@@ -301,7 +303,10 @@ export class World implements Updateable<unknown> {
     const component = path[1];
     const remainingPath = R.drop(2, path);
     let store = this.getComponentStore(component as string);
-    store = store[method](remainingPath, value as any);
+    store = store[method](
+      remainingPath,
+      value as any
+    ) as ComponentStore<unknown>;
 
     let entities = this.getComponentStore<Entity>('id');
     const ids = wrap(change.ids);
@@ -316,38 +321,67 @@ export class World implements Updateable<unknown> {
 
   add(
     path: Key[],
-    values?: unknown | unknown[],
+    values: unknown | unknown[],
     ids?: number | number[]
   ): World {
     if (path[0] === 'components') {
-      return this.forwardToComponents(createSystemChange('add', path, values));
-    } else {
-      return R.assocPath(path, values, this);
+      return this.forwardToComponents(
+        createSystemChange('add', path, values, ids)
+      );
     }
+
+    if (path[0] === 'events') {
+      const event = path[1];
+      let events = this.getEvents(event as string);
+      events = events.concat(wrap(values));
+      return R.assocPath(['events', event], events, this);
+    }
+
+    // Otherwise check we don't overwrite anything
+    if (R.path(path, this) !== undefined) {
+      return this;
+    }
+
+    return R.assocPath(path, values, this);
   }
 
-  delete(path: Key[], ...values: unknown[]): World {
+  set(
+    path: Key[],
+    values: unknown | unknown[],
+    ids?: number | number[]
+  ): World {
     if (path[0] === 'components') {
       return this.forwardToComponents(
-        createSystemChange('delete', path, values)
+        createSystemChange('add', path, values, ids)
       );
-    } else {
-      return R.modifyPath(path, R.omit(values as string[]), this);
     }
+    return R.assocPath(path, values, this);
   }
-  update(path: Key[], f: (value: unknown) => unknown): World {
+
+  delete(
+    path: Key[],
+    values?: string | string[],
+    ids?: number | number[]
+  ): World {
     if (path[0] === 'components') {
-      return this.forwardToComponents(createSystemChange('update', path, f));
-    } else {
-      return R.modifyPath(path, f, this);
+      return this.forwardToComponents(
+        createSystemChange('delete', path, values, ids) as SystemChange<unknown>
+      );
     }
+    return R.modifyPath(path, R.omit(wrap(values)), this);
   }
-  set(path: Key[], ...values: unknown[]): World {
+
+  update(
+    path: Key[],
+    f: (value: unknown) => unknown,
+    ids: number | number[]
+  ): World {
     if (path[0] === 'components') {
-      return this.forwardToComponents(createSystemChange('add', path, values));
-    } else {
-      return R.assocPath(path, values, this);
+      return this.forwardToComponents(
+        createSystemChange('update', path, f, ids)
+      );
     }
+    return R.modifyPath(path, f, this);
   }
 }
 

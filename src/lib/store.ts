@@ -6,7 +6,7 @@ import {wrap} from './util';
 import {ChangeType} from '@/types/system';
 
 export class SparseComponentStore<T>
-  implements Updateable<T>, ComponentStore<T>, SparseComponentStore<T>
+  implements Updateable<T>, ComponentStore<T>
 {
   maxID: number;
   n: number;
@@ -166,7 +166,7 @@ export class SparseComponentStore<T>
 
   delete(
     path: Key[],
-    values?: T | T[],
+    values?: string | string[],
     ids?: number | number[]
   ): SparseComponentStore<T> {
     const logChangeError = (msg: string) => this.logChangeError('delete', msg);

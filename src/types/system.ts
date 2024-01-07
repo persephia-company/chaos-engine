@@ -3,14 +3,14 @@ import {World} from './world';
 import {Key} from './updateable';
 import {Entity} from './entity';
 
-export type System = (world: World) => SystemResults;
+export type System = (world: World) => SystemResults<unknown>;
 
 export type ChangeType = 'add' | 'delete' | 'set' | 'update';
 
 export type SystemChange<T> = {
   method: ChangeType;
   path: Key[];
-  value?: T | T[] | ((v: T) => T);
+  value?: T | T[] | ((v: T) => T) | string | string[];
   ids?: Entity | Entity[];
 };
 
@@ -32,4 +32,4 @@ export type QueryResponse<T extends any[]> = {
 
 export type QueryHandler<T extends any[]> = (
   request: QueryResponse<T>
-) => SystemResults;
+) => SystemResults<unknown>;
