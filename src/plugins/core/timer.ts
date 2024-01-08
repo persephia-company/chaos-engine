@@ -69,13 +69,13 @@ export const createTimerSystem = (componentName: string) =>
       });
     });
 
-    let results = new SystemResults<unknown>();
+    let results = new SystemResults();
     Object.entries(events).forEach(([event, payloads]) => {
       results = results.add(['events', event], payloads);
     });
 
     // Accumulate time on all timers
-    const timerTicks = new SystemResults<Timer<unknown>>().update(
+    const timerTicks = new SystemResults().update<Timer<unknown>>(
       ['components', componentName],
       timer => timer.tick()
     );
@@ -87,7 +87,7 @@ export const createTimerResourceSystem = (resourceName: string) =>
     const timer = resources[resourceName] as Timer<unknown> | undefined;
     if (!timer) return new SystemResults();
 
-    const timerTicks = new SystemResults<Timer<unknown>>().update(
+    const timerTicks = new SystemResults().update<Timer<unknown>>(
       ['resources', resourceName],
       timer => timer.tick()
     );

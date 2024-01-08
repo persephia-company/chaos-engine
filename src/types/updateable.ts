@@ -1,16 +1,24 @@
 export type Key = string | number;
 
-export interface Updateable<T> {
-  add(path: Key[], values: T | T[], ids?: number | number[]): Updateable<T>;
-  set(path: Key[], values: T | T[], ids?: number | number[]): Updateable<T>;
-  delete(
+export interface Updateable<X, V = any> {
+  add: <T extends V>(
+    path: Key[],
+    values: T | T[],
+    ids?: number | number[]
+  ) => X;
+  set: <T extends V>(
+    path: Key[],
+    values: T | T[],
+    ids?: number | number[]
+  ) => X;
+  delete: (
     path: Key[],
     values?: string | string[],
     ids?: number | number[]
-  ): Updateable<T>;
-  update(
+  ) => X;
+  update: <T extends V>(
     path: Key[],
-    f: (value: T) => T,
+    f: (value: V) => T,
     ids?: number | number[]
-  ): Updateable<T>; //
+  ) => X; //
 }

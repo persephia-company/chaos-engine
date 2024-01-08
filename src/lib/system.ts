@@ -31,36 +31,36 @@ export const createSystemChange = <T>(
   return {method, path, value, ids};
 };
 
-export class SystemResults<T> implements Updateable<T> {
-  changes: SystemChange<T>[];
+export class SystemResults implements Updateable<SystemResults> {
+  changes: SystemChange<any>[];
 
-  constructor(changes: SystemChange<T>[] = []) {
+  constructor(changes: SystemChange<any>[] = []) {
     this.changes = changes;
   }
 
-  addChange(change: SystemChange<T>): SystemResults<T> {
+  addChange<T>(change: SystemChange<T>): SystemResults {
     return new SystemResults([...this.changes, change]);
   }
 
-  merge(results: SystemResults<any>): SystemResults<any> {
+  merge(results: SystemResults): SystemResults {
     return new SystemResults(this.changes.concat(results.changes));
   }
 
-  add(path: Key[], values: T | T[], ids?: number | number[]): SystemResults<T> {
+  add<T>(path: Key[], values: T | T[], ids?: number | number[]): SystemResults {
     const change = createSystemChange('add', path, values, ids);
     return this.addChange(change);
   }
 
-  set(path: Key[], values: T | T[], ids?: number | number[]): SystemResults<T> {
+  set<T>(path: Key[], values: T | T[], ids?: number | number[]): SystemResults {
     const change = createSystemChange('set', path, values, ids);
     return this.addChange(change);
   }
 
-  update(
+  update<T>(
     path: Key[],
     f: (value: T) => T,
     ids?: number | number[]
-  ): SystemResults<T> {
+  ): SystemResults {
     const change = createSystemChange('update', path, f, ids);
     return this.addChange(change);
   }
@@ -69,9 +69,8 @@ export class SystemResults<T> implements Updateable<T> {
     path: Key[],
     values?: string | string[],
     ids?: number | number[]
-  ): SystemResults<T> {
-    // TODO: the below typing isn't accurate but whatever.
-    const change = createSystemChange<T>('delete', path, values, ids);
+  ): SystemResults {
+    const change = createSystemChange('delete', path, values, ids);
     return this.addChange(change);
   }
 }
@@ -92,7 +91,7 @@ export const defsys =
       request.events.length > 0 &&
       R.none(a => a.length > 0, Object.values(events))
     ) {
-      return new SystemResults<unknown>();
+      return new SystemResults();
     }
 
     return handler({components, resources, events, options});

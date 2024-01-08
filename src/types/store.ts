@@ -1,6 +1,4 @@
-import {Updateable} from './updateable';
-
-export interface ComponentStore<T> extends Updateable<T> {
+export interface ComponentStore<T> {
   hasEntity(id: number): boolean;
   getComponent(id: number): T | undefined;
   getComponents(): T[];

@@ -6,7 +6,7 @@ import {wrap} from './util';
 import {ChangeType} from '@/types/system';
 
 export class SparseComponentStore<T>
-  implements Updateable<T>, ComponentStore<T>
+  implements Updateable<SparseComponentStore<T>, T>, ComponentStore<T>
 {
   maxID: number;
   n: number;
@@ -131,25 +131,27 @@ export class SparseComponentStore<T>
     return this;
   }
 
-  add(
+  // TODO: The typing here is gross but has to be done to
+  // satisfy the interface. Makes me wonder...
+  add<U extends T>(
     path: Key[],
-    values: T | T[],
+    values: U | U[],
     ids?: number | number[]
   ): SparseComponentStore<T> {
     return this._add('add', path, values, ids, false);
   }
 
-  set(
+  set<U extends T>(
     path: Key[],
-    values: T | T[],
+    values: U | U[],
     ids?: number | number[]
   ): SparseComponentStore<T> {
-    return this._add('set', path, values, ids, true);
+    return this._add('set', path, values as T | T[], ids, true);
   }
 
-  update(
+  update<U extends T>(
     path: Key[],
-    f: (value: T) => T,
+    f: (value: T) => U,
     ids?: number | number[]
   ): SparseComponentStore<T> {
     const logChangeError = (msg: string) => this.logChangeError('update', msg);

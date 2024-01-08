@@ -3,7 +3,7 @@ import {World} from '@/lib/world';
 import {Key} from './updateable';
 import {Entity} from './entity';
 
-export type System = (world: World) => SystemResults<unknown>;
+export type System = (world: World) => SystemResults;
 
 export type ChangeType = 'add' | 'delete' | 'set' | 'update';
 
@@ -32,4 +32,4 @@ export type QueryResponse<T extends any[]> = {
 
 export type QueryHandler<T extends any[]> = (
   request: QueryResponse<T>
-) => SystemResults<any>;
+) => SystemResults;

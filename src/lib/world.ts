@@ -1,15 +1,15 @@
 import {Entity} from '@/types/entity';
 import {ComponentStore} from '@/types/store';
 import {System, SystemChange} from '@/types/system';
-import {ReservedStages} from '@/types/world';
-import * as R from 'ramda';
+import {Key, Updateable} from '@/types/updateable';
+import {ReservedStages, WorldAPI, WorldStore} from '@/types/world';
+import {Queue} from '@datastructures-js/queue';
 import {DepGraph} from 'dependency-graph';
 import stringify from 'json-stable-stringify';
-import {groupBy, hash_cyrb53, wrap} from './util';
-import {Queue} from '@datastructures-js/queue';
-import {SystemResults, createSystemChange} from './system';
-import {Key, Updateable} from '@/types/updateable';
+import * as R from 'ramda';
 import {SparseComponentStore} from './store';
+import {SystemResults, createSystemChange} from './system';
+import {groupBy, hash_cyrb53, wrap} from './util';
 
 export enum ReservedKeys {
   GAME_SHOULD_QUIT = 'game-should-quit',
@@ -24,12 +24,12 @@ export enum ReservedKeys {
   ENTITY_REVIVAL_QUEUE = 'entity-revival-queue',
 }
 
-export class World implements Updateable<unknown> {
+export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   components: Record<string, ComponentStore<unknown>>;
   events: Record<string, unknown[]>;
   resources: Record<string, unknown>;
 
-  constructor(state: Partial<World> = {}) {
+  constructor(state: Partial<WorldStore> = {}) {
     this.components = state.components ?? {};
     this.events = state.events ?? {};
     this.resources = state.resources ?? {};
@@ -58,50 +58,51 @@ export class World implements Updateable<unknown> {
     return toRevive.concat(toCreate);
   }
 
-  setResource = R.curry(<T>(key: string, value: T) => {
-    return R.assocPath(['resources', key], value, this);
-  });
+  setResource = <T>(key: string, value: T) => {
+    this.resources[key] = value;
+    return this;
+  };
 
-  // TODO: Delete entity which cleans up all components
+  getResourceOr = <T>(otherwise: T, key: string): T => {
+    return R.pathOr(otherwise, ['resources', key], this);
+  };
 
-  getResourceOr = R.curry(
-    <T>(otherwise: T | undefined, key: string): T | undefined => {
-      return R.pathOr(otherwise, ['resources', key], this);
-    }
+  getResource: <T>(key: string) => T | undefined = R.partial(
+    this.getResourceOr,
+    [undefined]
   );
 
-  getResource: <T = unknown>(key: string) => T | undefined =
-    this.getResourceOr(undefined);
-
-  getEvents = <T = unknown>(key: string): T[] => {
+  getEvents = <T>(key: string): T[] => {
     return R.pathOr([], ['events', key], this);
   };
 
-  /**
-   * Returns a map of stages to their included systems within the world
-   */
-  getSystems: () => Record<string, Set<System>> = this.getResourceOr(
-    {} as Record<string, Set<System>>,
-    ReservedKeys.SYSTEMS
-  );
+  getComponentStore<T>(key: string): SparseComponentStore<T> {
+    return (
+      (this.components[key] as SparseComponentStore<T> | undefined) ??
+      new SparseComponentStore()
+    );
+  }
 
-  /**
-   * Returns a map of systems to their dependencies
-   */
-  private getSystemDependencies: () => Record<string, Set<string>> =
-    this.getResourceOr(
+  private getSystems() {
+    return this.getResourceOr(
+      {} as Record<string, Set<System>>,
+      ReservedKeys.SYSTEMS
+    );
+  }
+
+  private getSystemDependencies() {
+    return this.getResourceOr(
       {} as Record<string, Set<string>>,
       ReservedKeys.SYSTEM_DEPENDENCIES
     );
+  }
 
-  /**
-   * Returns a map of stages to their dependencies
-   */
-  private getStageDependencies: () => Record<string, Set<string>> =
-    this.getResourceOr(
+  private getStageDependencies() {
+    return this.getResourceOr(
       {} as Record<string, Set<string>>,
       ReservedKeys.STAGE_DEPENDENCIES
     );
+  }
 
   /**
    * Adds a new System to the world.
@@ -115,8 +116,8 @@ export class World implements Updateable<unknown> {
     );
     stageSystems.add(system);
 
-    const updateSystems = this.setResource(ReservedKeys.SYSTEMS);
-    return updateSystems(R.assoc(stage, stageSystems, systems));
+    const updatedSystems = R.assoc(stage, stageSystems, systems);
+    return this.setResource(ReservedKeys.SYSTEMS, updatedSystems);
   };
 
   addSystemDependency = (system: System, dependency: System): World => {
@@ -128,11 +129,14 @@ export class World implements Updateable<unknown> {
     );
     systemDependencies.add(dependency.name);
 
-    const updateDependencies = this.setResource(
-      ReservedKeys.SYSTEM_DEPENDENCIES
+    const updatedDependencies = R.assoc(
+      system.name,
+      systemDependencies,
+      dependencies
     );
-    return updateDependencies(
-      R.assoc(system.name, systemDependencies, dependencies)
+    return this.setResource(
+      ReservedKeys.SYSTEM_DEPENDENCIES,
+      updatedDependencies
     );
   };
 
@@ -145,11 +149,15 @@ export class World implements Updateable<unknown> {
     );
     stageDependencies.add(dependency);
 
-    const updateStageDependencies = this.setResource(
-      ReservedKeys.STAGE_DEPENDENCIES
+    const updatedStageDependencies = R.assoc(
+      stage,
+      stageDependencies,
+      dependencies
     );
-    return updateStageDependencies(
-      R.assoc(stage, stageDependencies, dependencies)
+
+    return this.setResource(
+      ReservedKeys.STAGE_DEPENDENCIES,
+      updatedStageDependencies
     );
   };
 
@@ -288,7 +296,7 @@ export class World implements Updateable<unknown> {
     return this.applySystemResults(system(this));
   };
 
-  applySystemResults = (results: SystemResults<unknown>): World => {
+  applySystemResults = (results: SystemResults): World => {
     const applyChange = (
       world: World,
       change: SystemChange<unknown>
@@ -343,14 +351,7 @@ export class World implements Updateable<unknown> {
     return world.applyStage(ReservedStages.TEAR_DOWN);
   }
 
-  getComponentStore<T>(key: string): ComponentStore<T> {
-    return (
-      (this.components[key] as ComponentStore<T> | undefined) ??
-      new SparseComponentStore()
-    );
-  }
-
-  forwardToComponents(change: SystemChange<unknown>): World {
+  forwardToComponents<T>(change: SystemChange<T>): World {
     const {method, path, value} = change;
     if (path.length < 2) {
       console.warn('Invalid change: ', change);
@@ -359,10 +360,7 @@ export class World implements Updateable<unknown> {
     const component = path[1];
     const remainingPath = R.drop(2, path);
     let store = this.getComponentStore(component as string);
-    store = store[method](
-      remainingPath,
-      value as any
-    ) as ComponentStore<unknown>;
+    store = store[method](remainingPath, value as any);
 
     let entities = this.getComponentStore<Entity>('id');
     const ids = wrap(change.ids);
@@ -375,11 +373,7 @@ export class World implements Updateable<unknown> {
     return R.assocPath(['components', 'id'], entities, result);
   }
 
-  add(
-    path: Key[],
-    values: unknown | unknown[],
-    ids?: number | number[]
-  ): World {
+  add<T>(path: Key[], values: T | T[], ids?: number | number[]): World {
     if (path[0] === 'components') {
       // If missing ids, create some.
       if (ids === undefined) {
@@ -405,14 +399,10 @@ export class World implements Updateable<unknown> {
     return R.assocPath(path, values, this);
   }
 
-  set(
-    path: Key[],
-    values: unknown | unknown[],
-    ids?: number | number[]
-  ): World {
+  set<T>(path: Key[], values: T | T[], ids?: number | number[]): World {
     if (path[0] === 'components') {
       return this.forwardToComponents(
-        createSystemChange('add', path, values, ids)
+        createSystemChange<T>('add', path, values, ids)
       );
     }
     return R.assocPath(path, values, this);
@@ -431,11 +421,7 @@ export class World implements Updateable<unknown> {
     return R.modifyPath(path, R.omit(wrap(values)), this);
   }
 
-  update(
-    path: Key[],
-    f: (value: unknown) => unknown,
-    ids: number | number[]
-  ): World {
+  update<T>(path: Key[], f: (value: T) => T, ids?: number | number[]): World {
     if (path[0] === 'components') {
       return this.forwardToComponents(
         createSystemChange('update', path, f, ids)
