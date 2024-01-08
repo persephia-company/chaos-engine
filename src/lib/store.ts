@@ -69,7 +69,13 @@ export class SparseComponentStore<T>
 
   remove(id: number): SparseComponentStore<T> {
     if (!this.hasEntity(id)) return this;
-    if (this.n === 1) return new SparseComponentStore(this.maxID);
+    if (this.n === 1) {
+      this.dense = [];
+      this.sparse = [];
+      this.components = [];
+      this.n = 0;
+      return this;
+    }
 
     const lastIndex = this.n - 1;
     const oldID = this.indexOf(id);
@@ -159,7 +165,8 @@ export class SparseComponentStore<T>
     }
 
     idList.forEach(id => {
-      this.components[id] = f(this.components[id]);
+      const index = this.indexOf(id);
+      this.components[index] = f(this.components[index]);
     });
     return this;
   }

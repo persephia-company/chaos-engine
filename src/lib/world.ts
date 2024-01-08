@@ -11,7 +11,7 @@ import {SystemResults, createSystemChange} from './system';
 import {Key, Updateable} from '@/types/updateable';
 import {SparseComponentStore} from './store';
 
-enum ReservedKeys {
+export enum ReservedKeys {
   GAME_SHOULD_QUIT = 'game-should-quit',
   SYSTEMS = 'systems',
   SYSTEM_DEPENDENCIES = 'system-dependencies',
