@@ -25,8 +25,8 @@ export const changeEventName = (method: ChangeType, key: string) => {
 export const createSystemChange = <T>(
   method: ChangeType,
   path: Key[],
-  value: SystemChange<T>['value'],
-  ids: SystemChange<T>['ids']
+  value?: SystemChange<T>['value'],
+  ids?: SystemChange<T>['ids']
 ): SystemChange<T> => {
   return {method, path, value, ids};
 };

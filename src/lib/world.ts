@@ -20,6 +20,8 @@ export enum ReservedKeys {
   SYSTEM_BATCHES = 'system-batches',
   STAGE_DEPENDENCIES = 'stage-dependencies',
   RAW_CHANGES = 'raw-changes',
+  MAX_ENTITY = 'max-entity',
+  ENTITY_REVIVAL_QUEUE = 'entity-revival-queue',
 }
 
 export class World implements Updateable<unknown> {
@@ -41,7 +43,19 @@ export class World implements Updateable<unknown> {
   }
 
   createEntity(): Entity {
-    return 1; //TODO: yo we gotta fix this
+    return this.createEntities(1)[0];
+  }
+
+  createEntities(n: number): Entity[] {
+    const revivalQueue: Entity[] = this.getResourceOr(
+      [],
+      ReservedKeys.ENTITY_REVIVAL_QUEUE
+    );
+    const maxEntity: Entity = this.getResourceOr(-1, ReservedKeys.MAX_ENTITY);
+    const toRevive = R.take(n, revivalQueue);
+    const toCreate = R.times(i => maxEntity + 1 + i, n - toRevive.length);
+
+    return toRevive.concat(toCreate);
   }
 
   setResource = R.curry(<T>(key: string, value: T) => {
@@ -56,10 +70,10 @@ export class World implements Updateable<unknown> {
     }
   );
 
-  getResource: <T>(key: string) => T | undefined =
+  getResource: <T = unknown>(key: string) => T | undefined =
     this.getResourceOr(undefined);
 
-  getEvents = <T>(key: string): T[] => {
+  getEvents = <T = unknown>(key: string): T[] => {
     return R.pathOr([], ['events', key], this);
   };
 
@@ -367,6 +381,10 @@ export class World implements Updateable<unknown> {
     ids?: number | number[]
   ): World {
     if (path[0] === 'components') {
+      // If missing ids, create some.
+      if (ids === undefined) {
+        ids = this.createEntities(wrap(values).length);
+      }
       return this.forwardToComponents(
         createSystemChange('add', path, values, ids)
       );
