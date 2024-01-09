@@ -313,18 +313,37 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     return this.applySystemResults(system(this));
   };
 
-  applySystemResults = (results: SystemResults): World => {
-    const applyChange = (
-      world: World,
-      change: SystemChange<unknown>
-    ): World => {
-      // Appends each raw change as a new event for plugins to inspect
-      world = world.add(['events', ReservedKeys.RAW_CHANGES], change);
-      const fn = world[change.method];
+  private validateChange(change: SystemChange<any>): string | undefined {
+    const {method, path} = change;
+    const value = wrap(change.value);
+    const ids = wrap(change.ids);
 
+    const err = (msg: string) =>
+      `Invalid Change: ${msg}\nRaw change: ${change}`;
+
+    if (path.length > 2) {
+      return err('The path is too long.');
+    }
+
+    if (['add', 'set'].includes(method)) {
+      if (!value.length) {
+        return err('Missing values');
+      }
+      if (value.length !== ids.length) {
+        return err('Supplied number of values must match ids length');
+      }
+    }
+
+    // TODO: More Error checking
+
+    return;
+  }
+
+  applySystemResults = (results: SystemResults): World => {
+    const applyChange = (world: World, change: SystemChange<any>): World => {
+      const fn = world[change.method];
       return fn(change.path, change.value as any, change.ids as any);
     };
-
     return R.reduce(applyChange, this, results.changes);
   };
 
@@ -382,10 +401,6 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
 
   forwardToComponents<T>(change: SystemChange<T>): World {
     const {method, path, value} = change;
-    if (path.length < 2) {
-      console.warn('Invalid change: ', change);
-      return this;
-    }
 
     // Add ids
     let entities = this.getComponentStore<Entity>('id');
@@ -409,10 +424,11 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
 
   add<T>(path: Key[], values: T | T[], ids?: number | number[]): World {
     if (path[0] === 'components') {
-      // If missing ids, create some.
-      if (ids === undefined) {
+      // Add Entity IDs if not specified.
+      if (!wrap(ids).length) {
         ids = this.createEntities(wrap(values).length);
       }
+      // TODO: check validity
       const change = createSystemChange('add', path, values, ids);
       return this.forwardToComponents(change);
     }
@@ -433,6 +449,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   }
 
   set<T>(path: Key[], values: T | T[], ids?: number | number[]): World {
+    // TODO: check validity
     if (path[0] === 'components') {
       return this.forwardToComponents(
         createSystemChange<T>('add', path, values, ids)
@@ -446,6 +463,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     values?: string | string[],
     ids?: number | number[]
   ): World {
+    // TODO: check validity
     if (path[0] === 'components') {
       return this.forwardToComponents(
         createSystemChange('delete', path, values, ids) as SystemChange<unknown>
@@ -455,6 +473,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   }
 
   update<T>(path: Key[], f: (value: T) => T, ids?: number | number[]): World {
+    // TODO: check validity
     if (path[0] === 'components') {
       return this.forwardToComponents(
         createSystemChange('update', path, f, ids)

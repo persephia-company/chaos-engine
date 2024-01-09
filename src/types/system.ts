@@ -7,7 +7,7 @@ export type System = (world: World) => SystemResults;
 
 export type ChangeType = 'add' | 'delete' | 'set' | 'update';
 
-export type SystemChange<T> = {
+export type SystemChange<T = any> = {
   method: ChangeType;
   path: Key[];
   value?: T | T[] | ((v: T) => T) | string | string[];
@@ -24,6 +24,7 @@ export type QueryRequest = {
 };
 
 export type QueryResponse<T extends any[]> = {
+  world: World;
   components: T[];
   resources: Record<string, unknown>;
   events: Record<string, unknown[]>;

@@ -1,12 +1,12 @@
 import {ReservedKeys, World} from './world';
 import {range} from 'ramda';
 import {describe, expect, test} from 'vitest';
-import {SystemResults, addCorePlugins} from '..';
+import {SystemResults, Plugins} from '..';
 import {ReservedStages} from '@/types/world';
 
 const createWorld = () => {
   const result = new World();
-  return addCorePlugins(result);
+  return Plugins.addCorePlugins(result);
 };
 
 describe('Newborn world tests', () => {

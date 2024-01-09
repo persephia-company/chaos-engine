@@ -18,7 +18,10 @@ import {World} from '@/lib/world';
  * @example
  * defsys({events: [changeEventName('update', 'player-hp')]}, ...etc)
  */
-export const changeEventName = (method: ChangeType, key: string) => {
+export const changeEventName = (
+  method: ChangeType | 'created' | 'modified',
+  key: string
+) => {
   return `${method}--${key}`;
 };
 
@@ -94,5 +97,5 @@ export const defsys =
       return new SystemResults();
     }
 
-    return handler({components, resources, events, options});
+    return handler({components, resources, events, options, world});
   };
