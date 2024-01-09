@@ -264,7 +264,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     const systems = this.getSystems()[stage];
     if (!systems) return this;
 
-    let world = new World({...this});
+    let world = this as World;
 
     // Update the stage
     // NOTE: not sure if it's best idea to have this call through the api
@@ -273,10 +273,11 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     // Check if system dependency graph is up to date
     // Rebuild if needed
     if (!this.isSystemGraphCurrent()) {
-      const graph = this.buildSystemDependencyGraph();
-      const stageBatches = world.buildStageBatches();
-
+      const graph = world.buildSystemDependencyGraph();
       world = world.setResource(ReservedKeys.SYSTEM_DEPENDENCY_GRAPH, graph);
+      // BUG: Somehow this isn't being found within find_depths
+
+      const stageBatches = world.buildStageBatches();
       world = world.setResource(ReservedKeys.SYSTEM_BATCHES, stageBatches);
     }
 
@@ -313,34 +314,15 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     return this.applySystemResults(system(this));
   };
 
-  private validateChange(change: SystemChange<any>): string | undefined {
-    const {method, path} = change;
-    const value = wrap(change.value);
-    const ids = wrap(change.ids);
-
-    const err = (msg: string) =>
-      `Invalid Change: ${msg}\nRaw change: ${change}`;
-
-    if (path.length > 2) {
-      return err('The path is too long.');
-    }
-
-    if (['add', 'set'].includes(method)) {
-      if (!value.length) {
-        return err('Missing values');
-      }
-      if (value.length !== ids.length) {
-        return err('Supplied number of values must match ids length');
-      }
-    }
-
-    // TODO: More Error checking
-
-    return;
-  }
-
   applySystemResults = (results: SystemResults): World => {
     const applyChange = (world: World, change: SystemChange<any>): World => {
+      // TODO: move this into individual api calls
+      // Emit raw changes events for future plugins
+      if (change.method === 'add' && !wrap(change.ids).length) {
+        change.ids = this.createEntities(wrap(change.value).length);
+      }
+      this.add(['events', ReservedKeys.RAW_CHANGES], change);
+
       const fn = world[change.method];
       return fn(change.path, change.value as any, change.ids as any);
     };
