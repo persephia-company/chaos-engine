@@ -8,6 +8,8 @@ export enum ReservedStages {
   PRE_STEP = 'pre-step',
   PRE_STAGE = 'pre-stage',
   UPDATE = 'update',
+  PRE_BATCH = 'pre-batch',
+  POST_BATCH = 'post-batch',
   POST_STAGE = 'post-stage',
   POST_STEP = 'post-step',
   TEAR_DOWN = 'tear-down',
@@ -26,6 +28,7 @@ export interface WorldAPI<A> {
   getResource: <T>(key: string) => T | undefined;
   setResource: <T>(key: string, value: T) => A;
   getEvents: <T>(key: string) => T[];
+  getSystems: () => Record<string, Set<System>>;
   getComponentStore: <T>(key: string) => ComponentStore<T>;
   addSystem: (system: System, stage?: string) => A;
   addSystemDependency: (system: System, dependency: System) => A;

@@ -7,6 +7,7 @@ import {
 import {ReservedKeys, World} from '@/lib/world';
 import {SystemChange} from '@/types/system';
 import {ReservedStages} from '@/types/world';
+import {reviveIDs, updateMaxID} from './ids';
 
 /**
  * Adds essential library plugins to the world. The engine will not function as expected without calling this.
@@ -14,7 +15,9 @@ import {ReservedStages} from '@/types/world';
 export const addCorePlugins = (world: World) => {
   return world
     .addSystem(resetEvents, ReservedStages.POST_STEP)
-    .addSystem(addChangeEvents, ReservedStages.POST_STAGE);
+    .addSystem(addChangeEvents, ReservedStages.POST_STAGE)
+    .addSystem(reviveIDs, ReservedStages.POST_BATCH)
+    .addSystem(updateMaxID, ReservedStages.POST_BATCH);
 };
 
 /**

@@ -12,6 +12,7 @@ import {SystemResults, createSystemChange} from './system';
 import {groupBy, hash_cyrb53, wrap} from './util';
 
 export enum ReservedKeys {
+  STAGE = 'stage',
   GAME_SHOULD_QUIT = 'game-should-quit',
   SYSTEMS = 'systems',
   SYSTEM_DEPENDENCIES = 'system-dependencies',
@@ -83,7 +84,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     );
   }
 
-  private getSystems() {
+  getSystems() {
     return this.getResourceOr(
       {} as Record<string, Set<System>>,
       ReservedKeys.SYSTEMS
@@ -264,6 +265,11 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     if (!systems) return this;
 
     let world = new World({...this});
+
+    // Update the stage
+    // NOTE: not sure if it's best idea to have this call through the api
+    world = world.set<string>(['resources', ReservedKeys.STAGE], stage);
+
     // Check if system dependency graph is up to date
     // Rebuild if needed
     if (!this.isSystemGraphCurrent()) {
@@ -281,15 +287,26 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     const batches = stageBatches[stage];
     if (!batches) return world;
 
-    const applySystems = (world: World, batch: System[]): World => {
-      return R.reduce(
+    const isBatchStage =
+      stage === ReservedStages.PRE_BATCH || stage === ReservedStages.POST_BATCH;
+
+    // NOTE: This seems gross.
+    const applySystemsBatch = (world: World, batch: System[]): World => {
+      if (!isBatchStage) {
+        world = world.applyStage(ReservedStages.PRE_BATCH);
+      }
+      world = R.reduce(
         (world, system) => world.applySystem(system),
         world,
         batch
       );
+      if (!isBatchStage) {
+        world = world.applyStage(ReservedStages.POST_BATCH);
+      }
+      return world;
     };
 
-    return R.reduce(applySystems, world, batches);
+    return R.reduce(applySystemsBatch, world, batches);
   };
 
   applySystem = (system: System) => {
@@ -351,17 +368,26 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     return world.applyStage(ReservedStages.TEAR_DOWN);
   }
 
+  private updateComponentStore<T>(
+    key: string,
+    fn: (store: ComponentStore<T>) => ComponentStore<T>
+  ): World {
+    this.components[key] = fn(this.getComponentStore(key));
+    return this;
+  }
+
+  private setComponentStore<T>(key: string, store: ComponentStore<T>): World {
+    return this.updateComponentStore(key, () => store);
+  }
+
   forwardToComponents<T>(change: SystemChange<T>): World {
     const {method, path, value} = change;
     if (path.length < 2) {
       console.warn('Invalid change: ', change);
       return this;
     }
-    const component = path[1];
-    const remainingPath = R.drop(2, path);
-    let store = this.getComponentStore(component as string);
-    store = store[method](remainingPath, value as any);
 
+    // Add ids
     let entities = this.getComponentStore<Entity>('id');
     const ids = wrap(change.ids);
     entities = R.reduce(
@@ -369,8 +395,16 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       entities,
       ids
     );
-    const result: World = R.assocPath(['components', component], store, this);
-    return R.assocPath(['components', 'id'], entities, result);
+
+    const component = path[1];
+    const remainingPath = R.drop(2, path);
+    let store = this.getComponentStore(component as string);
+    store = store[method](remainingPath, value as any, ids);
+
+    return this.setComponentStore(component as string, store).setComponentStore(
+      'id',
+      entities
+    );
   }
 
   add<T>(path: Key[], values: T | T[], ids?: number | number[]): World {
@@ -379,9 +413,8 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       if (ids === undefined) {
         ids = this.createEntities(wrap(values).length);
       }
-      return this.forwardToComponents(
-        createSystemChange('add', path, values, ids)
-      );
+      const change = createSystemChange('add', path, values, ids);
+      return this.forwardToComponents(change);
     }
 
     if (path[0] === 'events') {
