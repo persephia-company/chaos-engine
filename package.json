@@ -1,7 +1,7 @@
 {
-  "name": "",
+  "name": "chaos",
   "version": "0.0.1",
-  "description": "A functional ECS game engine for javascript.",
+  "description": "An ECS game engine for javascript.",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "license": "MIT",
