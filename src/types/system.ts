@@ -1,6 +1,5 @@
 import {SystemResults} from '@/lib/system';
 import {World} from '@/lib/world';
-import {Key} from './updateable';
 import {Entity} from './entity';
 
 export type System = (world: World) => SystemResults;
@@ -9,7 +8,7 @@ export type ChangeType = 'add' | 'delete' | 'set' | 'update';
 
 export type SystemChange<T = any> = {
   method: ChangeType;
-  path: Key[];
+  path: string[];
   value?: T | T[] | ((v: T) => T) | string | string[];
   ids?: Entity | Entity[];
 };

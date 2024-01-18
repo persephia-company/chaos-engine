@@ -1,5 +1,5 @@
 import ComponentStore from '@/types/store';
-import {Key, Updateable} from '@/types/updateable';
+import {Updateable} from '@/types/updateable';
 
 import {take, zip} from 'ramda';
 import {wrap} from './util';
@@ -99,7 +99,7 @@ export class SparseComponentStore<T>
 
   private _add(
     method: 'add' | 'set',
-    path: Key[],
+    path: string[],
     values: T | T[],
     ids?: number | number[],
     overwrite = false
@@ -134,7 +134,7 @@ export class SparseComponentStore<T>
   // TODO: The typing here is gross but has to be done to
   // satisfy the interface. Makes me wonder...
   add<U extends T>(
-    path: Key[],
+    path: string[],
     values: U | U[],
     ids?: number | number[]
   ): SparseComponentStore<T> {
@@ -142,7 +142,7 @@ export class SparseComponentStore<T>
   }
 
   set<U extends T>(
-    path: Key[],
+    path: string[],
     values: U | U[],
     ids?: number | number[]
   ): SparseComponentStore<T> {
@@ -150,7 +150,7 @@ export class SparseComponentStore<T>
   }
 
   update<U extends T>(
-    path: Key[],
+    path: string[],
     f: (value: T) => U,
     ids?: number | number[]
   ): SparseComponentStore<T> {
@@ -174,7 +174,7 @@ export class SparseComponentStore<T>
   }
 
   delete(
-    path: Key[],
+    path: string[],
     values?: string | string[],
     ids?: number | number[]
   ): SparseComponentStore<T> {

@@ -1,7 +1,7 @@
 import {ReservedKeys, World} from './world';
 import {range} from 'ramda';
 import {describe, expect, test} from 'vitest';
-import {SystemResults, Plugins} from '..';
+import {SystemResults, Plugins, defsys} from '..';
 import {ReservedStages} from '@/types/world';
 
 const createWorld = () => {
@@ -43,20 +43,23 @@ describe('System Tests', () => {
   const sys2 = (world: World) => new SystemResults();
 
   test('Can add systems correctly', () => {
-    const world = createWorld();
-    world.addSystem(sys1);
-    world.addSystem(sys2, 'stage');
+    let world = createWorld();
+    world = world.addSystem(sys1);
+    world = world.addSystem(sys2, 'stage');
 
     const systems = world.getSystems();
     expect(systems[ReservedStages.UPDATE].size).toBe(1);
+    expect(systems[ReservedStages.UPDATE].has(sys1)).toBe(true);
     expect(systems['stage'].size).toBe(1);
+    expect(systems['stage'].has(sys2)).toBe(true);
   });
 
   test('Can add system dependencies', () => {
-    const world = createWorld();
-    world.addSystem(sys1);
-    world.addSystem(sys2);
-    world.addSystemDependency(sys1, sys2);
+    const a = defsys({}, () => new SystemResults());
+    const world = createWorld()
+      .addSystem(sys1)
+      .addSystem(sys2)
+      .addSystemDependency(sys1, sys2);
 
     const dependencies = world.getResourceOr<Record<string, Set<string>>>(
       {},
@@ -64,6 +67,10 @@ describe('System Tests', () => {
     );
     expect(dependencies[sys1.name].size).toBe(1);
     expect(dependencies[sys1.name].has(sys2.name));
+
+    const systems = world.getSystems();
+    expect(systems[ReservedStages.UPDATE].size).toBe(2);
+    expect(systems[ReservedStages.UPDATE].has(sys1)).toBe(true);
   });
 
   test('Adding system dependencies without adding the systems does nothing', () => {
@@ -120,6 +127,15 @@ describe('API Tests', () => {
     expect(store.getComponent(1)).toBe('there');
     expect(ids.includes(0)).toBe(true);
     expect(ids.includes(1)).toBe(true);
+  });
+
+  test('Add event', () => {
+    let world = createWorld();
+    const eventName = 'tick';
+    world = world.add(['events', eventName], 'hi');
+    const events = world.getEvents<string>(eventName);
+    expect(events.length, 'Expected a single tick event').toBe(1);
+    expect(events[0]).toBe('hi');
   });
 });
 

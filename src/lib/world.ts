@@ -1,7 +1,7 @@
 import {Entity} from '@/types/entity';
 import {ComponentStore} from '@/types/store';
 import {System, SystemChange} from '@/types/system';
-import {Key, Updateable} from '@/types/updateable';
+import {Updateable} from '@/types/updateable';
 import {ReservedStages, WorldAPI, WorldStore} from '@/types/world';
 import {Queue} from '@datastructures-js/queue';
 import {DepGraph} from 'dependency-graph';
@@ -9,7 +9,14 @@ import stringify from 'json-stable-stringify';
 import * as R from 'ramda';
 import {SparseComponentStore} from './store';
 import {SystemResults, createSystemChange} from './system';
-import {groupBy, hash_cyrb53, wrap} from './util';
+import {
+  groupBy,
+  hash_cyrb53,
+  objAssoc,
+  objDelete,
+  objUpdate,
+  wrap,
+} from './util';
 
 export enum ReservedKeys {
   STAGE = 'stage',
@@ -74,7 +81,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   );
 
   getEvents = <T>(key: string): T[] => {
-    return R.pathOr([], ['events', key], this);
+    return (this.events[key] ?? []) as T[];
   };
 
   getComponentStore<T>(key: string): SparseComponentStore<T> {
@@ -275,7 +282,6 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     if (!world.isSystemGraphCurrent()) {
       const graph = world.buildSystemDependencyGraph();
       world = world.setResource(ReservedKeys.SYSTEM_DEPENDENCY_GRAPH, graph);
-      // BUG: Somehow this isn't being found within find_depths
 
       const stageBatches = world.buildStageBatches();
       world = world.setResource(ReservedKeys.SYSTEM_BATCHES, stageBatches);
@@ -395,16 +401,16 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
 
     const component = path[1];
     const remainingPath = R.drop(2, path);
-    let store = this.getComponentStore(component as string);
+    let store = this.getComponentStore(component);
     store = store[method](remainingPath, value as any, ids);
 
-    return this.setComponentStore(component as string, store).setComponentStore(
+    return this.setComponentStore(component, store).setComponentStore(
       'id',
       entities
     );
   }
 
-  add<T>(path: Key[], values: T | T[], ids?: number | number[]): World {
+  add<T>(path: string[], values: T | T[], ids?: number | number[]): World {
     if (path[0] === 'components') {
       // Add Entity IDs if not specified.
       if (!wrap(ids).length) {
@@ -417,31 +423,33 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
 
     if (path[0] === 'events') {
       const event = path[1];
-      let events = this.getEvents(event as string);
+      let events = this.getEvents(event);
       events = events.concat(wrap(values));
-      return R.assocPath(['events', event], events, this);
-    }
-
-    // Otherwise check we don't overwrite anything
-    if (R.path(path, this) !== undefined) {
+      objAssoc(['events', event], events, this);
       return this;
     }
 
-    return R.assocPath(path, values, this);
+    // Otherwise check we don't overwrite anything
+    if (R.path(path, this) === undefined) {
+      objAssoc(path, values, this);
+    }
+
+    return this;
   }
 
-  set<T>(path: Key[], values: T | T[], ids?: number | number[]): World {
+  set<T>(path: string[], values: T | T[], ids?: number | number[]): World {
     // TODO: check validity
     if (path[0] === 'components') {
       return this.forwardToComponents(
         createSystemChange<T>('add', path, values, ids)
       );
     }
-    return R.assocPath(path, values, this);
+    objAssoc(path, values, this);
+    return this;
   }
 
   delete(
-    path: Key[],
+    path: string[],
     values?: string | string[],
     ids?: number | number[]
   ): World {
@@ -451,17 +459,23 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
         createSystemChange('delete', path, values, ids) as SystemChange<unknown>
       );
     }
-    return R.modifyPath(path, R.omit(wrap(values)), this);
+    objDelete(path, wrap(values), this);
+    return this;
   }
 
-  update<T>(path: Key[], f: (value: T) => T, ids?: number | number[]): World {
+  update<T>(
+    path: string[],
+    f: (value: T) => T,
+    ids?: number | number[]
+  ): World {
     // TODO: check validity
     if (path[0] === 'components') {
       return this.forwardToComponents(
         createSystemChange('update', path, f, ids)
       );
     }
-    return R.modifyPath(path, f, this);
+    objUpdate(path, f, this);
+    return this;
   }
 }
 

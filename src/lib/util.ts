@@ -54,3 +54,59 @@ export const third = R.nth(2);
 export const fourth = R.nth(3);
 export const fifth = R.nth(4);
 export const sixth = R.nth(5);
+
+const objModify = (
+  path: string[],
+  fn: (key: string, enclosingNode: Record<string, any>) => void,
+  obj: Record<string, any>
+) => {
+  let v = obj;
+  path.forEach((key, i) => {
+    if (i === path.length - 1) {
+      return fn(key, v);
+    }
+    if (v[key] === undefined) {
+      v[key] = {};
+    }
+    v = v[key];
+  });
+};
+
+export const objUpdate = (
+  path: string[],
+  fn: (value: any) => any,
+  obj: Record<string, any>
+) => {
+  return objModify(
+    path,
+    (key, node) => {
+      node[key] = fn(node[key]);
+    },
+    obj
+  );
+};
+
+export const objAssoc = <T>(
+  path: string[],
+  value: T,
+  o: Record<string, any>
+) => {
+  return objUpdate(path, () => value, o);
+};
+
+export const objDelete = (
+  path: string[],
+  keys: string[],
+  o: Record<string, any>
+) => {
+  if (keys.length) {
+    return objUpdate(path, R.omit(keys), o);
+  }
+  return objModify(
+    path,
+    (key, node) => {
+      delete node[key];
+    },
+    o
+  );
+};

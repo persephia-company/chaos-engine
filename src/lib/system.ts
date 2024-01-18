@@ -3,10 +3,11 @@ import {
   ChangeType,
   QueryRequest,
   QueryHandler,
+  System,
 } from '@/types/system';
 
 import * as R from 'ramda';
-import {Key, Updateable} from '@/types/updateable';
+import {Updateable} from '@/types/updateable';
 import {World} from '@/lib/world';
 
 /**
@@ -27,7 +28,7 @@ export const changeEventName = (
 
 export const createSystemChange = <T>(
   method: ChangeType,
-  path: Key[],
+  path: string[],
   value?: SystemChange<T>['value'],
   ids?: SystemChange<T>['ids']
 ): SystemChange<T> => {
@@ -49,18 +50,26 @@ export class SystemResults implements Updateable<SystemResults> {
     return new SystemResults(this.changes.concat(results.changes));
   }
 
-  add<T>(path: Key[], values: T | T[], ids?: number | number[]): SystemResults {
+  add<T>(
+    path: string[],
+    values: T | T[],
+    ids?: number | number[]
+  ): SystemResults {
     const change = createSystemChange('add', path, values, ids);
     return this.addChange(change);
   }
 
-  set<T>(path: Key[], values: T | T[], ids?: number | number[]): SystemResults {
+  set<T>(
+    path: string[],
+    values: T | T[],
+    ids?: number | number[]
+  ): SystemResults {
     const change = createSystemChange('set', path, values, ids);
     return this.addChange(change);
   }
 
   update<T>(
-    path: Key[],
+    path: string[],
     f: (value: T) => T,
     ids?: number | number[]
   ): SystemResults {
@@ -69,7 +78,7 @@ export class SystemResults implements Updateable<SystemResults> {
   }
 
   delete(
-    path: Key[],
+    path: string[],
     values?: string | string[],
     ids?: number | number[]
   ): SystemResults {
@@ -99,3 +108,33 @@ export const defsys =
 
     return handler({components, resources, events, options, world});
   };
+
+/**
+ * A decorator for a system which specifies that the system should only be run
+ * when the system has events of the supplied names. Otherwise, it returns some
+ * empty system results.
+ *
+ * Curries its arguments for further modularity.
+ *
+ * @example
+ * const onTick = requireEvents(['tick'])
+ *
+ * let system = () => {
+ *  console.log('hi')
+ *  return new SystemResults();
+ * }
+ *
+ * system = onTick(system); // now system will only run whenever a 'tick' event is detected
+ */
+export const requireEvents = R.curry(
+  (eventNames: string[], system: System): System => {
+    const result = (world: World) => {
+      if (eventNames.some(name => world.getEvents(name).length > 0)) {
+        return system(world);
+      }
+      return new SystemResults();
+    };
+    // Force the returned system to have the same name as the incoming one.
+    return Object.defineProperty(result, 'name', {value: system.name});
+  }
+);
