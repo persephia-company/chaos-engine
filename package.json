@@ -1,11 +1,21 @@
 {
-  "name": "chaos",
-  "version": "0.0.2",
+  "name": "@persephia/chaos-engine",
+  "version": "0.0.1",
   "description": "An ECS game engine for javascript.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "module": "dist/index.mjs",
+  "private": false,
+  "files": [
+    "dist"
+  ],
   "license": "MIT",
-  "keywords": [],
+  "keywords": [
+    "ECS",
+    "Game Engine",
+    "chaos",
+    "chaos engine"
+  ],
   "scripts": {
     "dev": "vitest",
     "test": "vitest run",
@@ -16,9 +26,11 @@
     "fix": "gts fix",
     "prepare": "npm run compile",
     "pretest": "npm run compile",
-    "posttest": "npm run lint"
+    "posttest": "npm run lint",
+    "release": "npm run lint && npm run test && npm run build && changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.27.1",
     "@types/json-stable-stringify": "^1.0.36",
     "@types/node": "20.8.2",
     "@types/ramda": "^0.29.9",

@@ -272,7 +272,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
 
     // Check if system dependency graph is up to date
     // Rebuild if needed
-    if (!this.isSystemGraphCurrent()) {
+    if (!world.isSystemGraphCurrent()) {
       const graph = world.buildSystemDependencyGraph();
       world = world.setResource(ReservedKeys.SYSTEM_DEPENDENCY_GRAPH, graph);
       // BUG: Somehow this isn't being found within find_depths
