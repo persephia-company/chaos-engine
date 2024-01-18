@@ -2,6 +2,7 @@ import {SystemResults} from '@/lib/system';
 import {World} from '@/lib/world';
 import {Entity} from './entity';
 
+// TODO: Make result optional
 export type System = (world: World) => SystemResults;
 
 export type ChangeType = 'add' | 'delete' | 'set' | 'update';
