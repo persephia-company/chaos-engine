@@ -1,5 +1,11 @@
 # @persephia/chaos-engine
 
+## 0.0.4
+
+### Patch Changes
+
+- 44a0c1e: Properly export requireEvents
+
 ## 0.0.3
 
 ### Patch Changes
