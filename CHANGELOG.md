@@ -1,5 +1,11 @@
 # @persephia/chaos-engine
 
+## 0.0.5
+
+### Patch Changes
+
+- 37d0edf: Fix system naming issues and stage application bugs.
+
 ## 0.0.4
 
 ### Patch Changes
