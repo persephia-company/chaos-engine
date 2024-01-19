@@ -1,5 +1,11 @@
 # @persephia/chaos-engine
 
+## 0.0.7
+
+### Patch Changes
+
+- 81cf879: Fix some essential errors around id allocation and improve error logging in store updates.
+
 ## 0.0.6
 
 ### Patch Changes
