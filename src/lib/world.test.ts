@@ -162,7 +162,6 @@ describe('Running The Game', () => {
     expect(1).toBe(1);
   });
 
-  // BUG: Startup stage running multiple times (3)
   test('Can run startup stage', () => {
     let count1 = 0;
     let count2 = 0;
