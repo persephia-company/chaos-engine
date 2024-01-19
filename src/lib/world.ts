@@ -472,7 +472,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     // TODO: check validity
     if (path[0] === 'components') {
       return this.forwardToComponents(
-        createSystemChange<T>('add', path, values, ids)
+        createSystemChange<T>('set', path, values, ids)
       );
     }
     objAssoc(path, values, this);
