@@ -345,7 +345,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       // TODO: move this into individual api calls
       // Emit raw changes events for future plugins
       if (change.method === 'add' && !wrap(change.ids).length) {
-        change.ids = this.createEntities(wrap(change.value).length);
+        change.ids = world.createEntities(wrap(change.value).length);
       }
       return world
         .add(['events', ReservedKeys.RAW_CHANGES], change)
@@ -399,7 +399,6 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   };
 
   play() {
-    // TODO: Make not functional
     let world = this.applyStage(ReservedStages.START_UP);
     while (!world.isFinished()) {
       world = world.step();

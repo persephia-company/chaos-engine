@@ -8,9 +8,12 @@ import {System, SystemChange} from '@/types/system';
  * Adds deleted entities to the revival queue to reclaim their id later.
  */
 export const reviveIDs: System = world => {
-  const deadIDs = world.getEvents<Entity>(changeEventName('delete', 'id'));
-  if (!deadIDs) return;
+  const deletions = world.getEvents<SystemChange<Entity>>(
+    changeEventName('delete', 'id')
+  );
+  if (!deletions.length) return;
 
+  const deadIDs = deletions.flatMap(change => wrap(change.ids));
   return new SystemResults()
     .add(['resources', ReservedKeys.ENTITY_REVIVAL_QUEUE], new Set())
     .update(
