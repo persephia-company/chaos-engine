@@ -14,7 +14,7 @@ export const addChangeEvents: System = world => {
   const rawChanges = world.getEvents<SystemChange<unknown>>(
     ReservedKeys.RAW_CHANGES
   );
-  if (!rawChanges.length) return new SystemResults();
+  if (!rawChanges.length) return;
 
   const buildChange = (rawChange: SystemChange<unknown>) => {
     const key = rawChange.path[1];
@@ -39,7 +39,7 @@ export const addCreatedEvents: System = world => {
     ReservedKeys.RAW_CHANGES
   );
 
-  if (!rawChanges.length) return new SystemResults();
+  if (!rawChanges.length) return;
 
   const generateCreatedChanges = (
     rawChange: SystemChange

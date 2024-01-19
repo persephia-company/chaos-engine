@@ -49,7 +49,7 @@ describe('Required Events Helper', () => {
 
   it('Should only trigger when specified', () => {
     // Just has a non-zero change length to distinguish it
-    let add: System = () => new SystemResults().add(['resources', 'x'], 1);
+    let add = (_: World) => new SystemResults().add(['resources', 'x'], 1);
     let world = new World();
 
     expect(add(world).changes.length).toBe(1);

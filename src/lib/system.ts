@@ -87,9 +87,12 @@ export class SystemResults implements Updateable<SystemResults> {
   }
 }
 
-export const defsys =
-  <C extends any[]>(request: Partial<QueryRequest>, handler: QueryHandler<C>) =>
-  (world: World) => {
+export const defsys = <C extends any[]>(
+  request: Partial<QueryRequest>,
+  handler: QueryHandler<C>,
+  name = 'anonymousSystem'
+) => {
+  const result = (world: World) => {
     const components = request.components
       ? world.query<C>(request.components)
       : [];
@@ -108,6 +111,17 @@ export const defsys =
 
     return handler({components, resources, events, options, world});
   };
+  return nameSystem(name, result);
+};
+
+/**
+ * Overwrites the function name for the system.
+ *
+ * Useful for when naming is obscured by closures.
+ */
+export const nameSystem = (name: string, system: System) => {
+  return Object.defineProperty(system, 'name', {value: name});
+};
 
 /**
  * A decorator for a system which specifies that the system should only be run
@@ -135,6 +149,6 @@ export const requireEvents = R.curry(
       return new SystemResults();
     };
     // Force the returned system to have the same name as the incoming one.
-    return Object.defineProperty(result, 'name', {value: system.name});
+    return nameSystem(system.name, result);
   }
 );

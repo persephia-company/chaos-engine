@@ -55,12 +55,12 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   }
 
   createEntities(n: number): Entity[] {
-    const revivalQueue: Entity[] = this.getResourceOr(
-      [],
+    const revivalQueue: Set<Entity> = this.getResourceOr(
+      new Set(),
       ReservedKeys.ENTITY_REVIVAL_QUEUE
     );
     const maxEntity: Entity = this.getResourceOr(-1, ReservedKeys.MAX_ENTITY);
-    const toRevive = R.take(n, revivalQueue);
+    const toRevive = R.take(n, Array.from(revivalQueue));
     const toCreate = R.times(i => maxEntity + 1 + i, n - toRevive.length);
 
     return toRevive.concat(toCreate);
@@ -168,6 +168,10 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       updatedStageDependencies
     );
   };
+
+  addPlugin(plugin: (world: World) => World): World {
+    return plugin(this);
+  }
 
   /**
    * Queries the world for all supplied components
@@ -291,33 +295,46 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       ReservedKeys.SYSTEM_BATCHES
     ) as Record<string, System[][]>;
 
-    const batches = stageBatches[stage];
-    if (!batches) return world;
+    const _applyStage = (_stage: string, world: World) => {
+      const batches = stageBatches[stage];
+      if (!batches) return world;
 
-    const isBatchStage =
-      stage === ReservedStages.PRE_BATCH || stage === ReservedStages.POST_BATCH;
+      const applySystemsBatch = (world: World, batch: System[]): World => {
+        return R.reduce(
+          (world, system) => world.applySystem(system),
+          world,
+          batch
+        );
+      };
 
-    // NOTE: This seems gross.
-    const applySystemsBatch = (world: World, batch: System[]): World => {
-      if (!isBatchStage) {
-        world = world.applyStage(ReservedStages.PRE_BATCH);
-      }
-      world = R.reduce(
-        (world, system) => world.applySystem(system),
-        world,
-        batch
-      );
-      if (!isBatchStage) {
-        world = world.applyStage(ReservedStages.POST_BATCH);
-      }
-      return world;
+      const applyBatchInterleaved = (world: World, batch: System[]): World => {
+        world = R.reduce(
+          applySystemsBatch,
+          world,
+          stageBatches[ReservedStages.PRE_BATCH]
+        );
+        world = applySystemsBatch(world, batch);
+        world = R.reduce(
+          applySystemsBatch,
+          world,
+          stageBatches[ReservedStages.POST_BATCH]
+        );
+        return world;
+      };
+
+      return R.reduce(applyBatchInterleaved, world, batches);
     };
 
-    return R.reduce(applySystemsBatch, world, batches);
+    world = _applyStage(ReservedStages.PRE_STAGE, world);
+    world = _applyStage(stage, world);
+    world = _applyStage(ReservedStages.POST_STAGE, world);
+    return world;
   };
 
   applySystem = (system: System) => {
-    return this.applySystemResults(system(this));
+    const results = system(this);
+    const result = results ? this.applySystemResults(results) : this;
+    return result;
   };
 
   applySystemResults = (results: SystemResults): World => {
@@ -327,12 +344,24 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       if (change.method === 'add' && !wrap(change.ids).length) {
         change.ids = this.createEntities(wrap(change.value).length);
       }
-      this.add(['events', ReservedKeys.RAW_CHANGES], change);
-
-      const fn = world[change.method];
-      return fn(change.path, change.value as any, change.ids as any);
+      return world
+        .add(['events', ReservedKeys.RAW_CHANGES], change)
+        .applySystemChange(change);
     };
     return R.reduce(applyChange, this, results.changes);
+  };
+
+  private applySystemChange = (change: SystemChange<any>): World => {
+    switch (change.method) {
+      case 'add':
+        return this.add(change.path, change.value, change.ids);
+      case 'delete':
+        return this.delete(change.path, change.value, change.ids);
+      case 'set':
+        return this.set(change.path, change.value, change.ids);
+      case 'update':
+        return this.update(change.path, change.value, change.ids);
+    }
   };
 
   private buildStageDependencyGraph = () => {
@@ -509,14 +538,18 @@ const findDepths = (
   const q = new Queue(initialNodes);
   const result: Record<string, number> = {};
 
+  const calculateDepth = (currentDepth: number, system: string) => {
+    return Math.max(currentDepth + 1, result[system] ?? 0);
+  };
+
   while (!q.isEmpty()) {
     const [system, depth] = q.dequeue();
     const neighbours = graph.dependantsOf(system);
     const nextNodes = neighbours.map(neighbour => [
       neighbour,
-      Math.max(depth + 1, result[neighbour]),
+      calculateDepth(depth, neighbour),
     ]) as [string, number][];
-    nextNodes.forEach(q.enqueue);
+    nextNodes.forEach(v => q.enqueue(v));
     result[system] = depth;
   }
   return result;

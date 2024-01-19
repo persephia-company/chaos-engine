@@ -3,7 +3,7 @@ import {World} from '@/lib/world';
 import {Entity} from './entity';
 
 // TODO: Make result optional
-export type System = (world: World) => SystemResults;
+export type System = (world: World) => SystemResults | void;
 
 export type ChangeType = 'add' | 'delete' | 'set' | 'update';
 

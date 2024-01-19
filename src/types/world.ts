@@ -33,6 +33,7 @@ export interface WorldAPI<A> {
   addSystem: (system: System, stage?: string) => A;
   addSystemDependency: (system: System, dependency: System) => A;
   addStageDependency: (stage: string, dependency: string) => A;
+  addPlugin: (plugin: (world: A) => A) => A;
   query: <T extends any[]>(components: string[]) => T[];
   applyStage: (stage: string) => A;
   applySystem: (system: System) => A;

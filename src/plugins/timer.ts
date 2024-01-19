@@ -1,4 +1,4 @@
-import {SystemResults, defsys} from '@/lib/system';
+import {SystemResults, defsys, nameSystem} from '@/lib/system';
 import {first} from '@/lib/util';
 import {range, repeat} from 'ramda';
 
@@ -53,37 +53,48 @@ export class Timer<T> {
   }
 }
 
-export const createTimerSystem = (componentName: string) =>
-  defsys<[Timer<unknown>]>({components: [componentName]}, ({components}) => {
-    const timers = components.map(first) as Timer<unknown>[];
-    const poppedTimers = timers.filter(timer => timer.emitCount() > 0);
+export const createTimerSystem = (
+  componentName: string,
+  systemName?: string
+) => {
+  const result = defsys<[Timer<unknown>]>(
+    {components: [componentName]},
+    ({components}) => {
+      const timers = components.map(first) as Timer<unknown>[];
+      const poppedTimers = timers.filter(timer => timer.emitCount() > 0);
 
-    // Capture all emitted events
-    const events: Record<string, unknown[]> = {};
-    poppedTimers.forEach(timer => {
-      range(0, timer.emitCount()).forEach(() => {
-        if (!Object.keys(events).includes(timer.event)) {
-          events[timer.event] = [];
-        }
-        events[timer.event].push(timer.payload);
+      // Capture all emitted events
+      const events: Record<string, unknown[]> = {};
+      poppedTimers.forEach(timer => {
+        range(0, timer.emitCount()).forEach(() => {
+          if (!Object.keys(events).includes(timer.event)) {
+            events[timer.event] = [];
+          }
+          events[timer.event].push(timer.payload);
+        });
       });
-    });
 
-    let results = new SystemResults();
-    Object.entries(events).forEach(([event, payloads]) => {
-      results = results.add(['events', event], payloads);
-    });
+      let results = new SystemResults();
+      Object.entries(events).forEach(([event, payloads]) => {
+        results = results.add(['events', event], payloads);
+      });
 
-    // Accumulate time on all timers
-    const timerTicks = new SystemResults().update<Timer<unknown>>(
-      ['components', componentName],
-      timer => timer.tick()
-    );
-    return results.merge(timerTicks);
-  });
+      // Accumulate time on all timers
+      const timerTicks = new SystemResults().update<Timer<unknown>>(
+        ['components', componentName],
+        timer => timer.tick()
+      );
+      return results.merge(timerTicks);
+    }
+  );
+  return nameSystem(systemName ?? `${componentName}TimerSystem`, result);
+};
 
-export const createTimerResourceSystem = (resourceName: string) =>
-  defsys({resources: [resourceName]}, ({resources}) => {
+export const createTimerResourceSystem = (
+  resourceName: string,
+  systemName?: string
+) => {
+  const result = defsys({resources: [resourceName]}, ({resources}) => {
     const timer = resources[resourceName] as Timer<unknown> | undefined;
     if (!timer) return new SystemResults();
 
@@ -101,3 +112,5 @@ export const createTimerResourceSystem = (resourceName: string) =>
     const results = new SystemResults().add(['events', timer.event], payloads);
     return results.merge(timerTicks);
   });
+  return nameSystem(systemName ?? `${resourceName}ResourceTimerSystem`, result);
+};

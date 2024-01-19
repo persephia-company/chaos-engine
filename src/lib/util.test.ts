@@ -42,6 +42,12 @@ describe('Object Manipulation', () => {
     expect(a['a']['c']).toBe(4);
   });
 
+  test('Object update missing record', () => {
+    const a: Record<string, any> = {a: {c: 3}};
+    objUpdate(['a', 'b'], x => 4, a);
+    expect(a['a']['b']).toBe(4);
+  });
+
   test('Object delete', () => {
     const a: Record<string, any> = {a: {c: 3}};
     objDelete(['a', 'c'], [], a);

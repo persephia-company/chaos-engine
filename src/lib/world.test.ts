@@ -1,12 +1,15 @@
 import {ReservedKeys, World} from './world';
 import {range} from 'ramda';
 import {describe, expect, test} from 'vitest';
-import {SystemResults, Plugins, defsys} from '..';
+import {SystemResults, Plugins, System} from '..';
 import {ReservedStages} from '@/types/world';
 
 const createWorld = () => {
-  const result = new World();
-  return Plugins.addCorePlugins(result);
+  return new World().addPlugin(Plugins.corePlugin);
+};
+
+const satisfiesInvariant = (world: World) => {
+  return world instanceof World;
 };
 
 describe('Newborn world tests', () => {
@@ -16,6 +19,7 @@ describe('Newborn world tests', () => {
     expect(world.resources).toEqual({});
     expect(world.components).toEqual({});
     expect(world.getEntities().length).toBe(0);
+    expect(satisfiesInvariant(world)).true;
   });
 });
 
@@ -28,6 +32,7 @@ describe('New Id checks', () => {
     expect(world.createEntities(5)).toEqual(range(0, 5));
     // Repeated to test immutability
     expect(world.createEntities(5)).toEqual(range(0, 5));
+    expect(satisfiesInvariant(world)).true;
   });
 
   test('Create entities with non-empty revival queue should draw from revival queue', () => {
@@ -35,6 +40,7 @@ describe('New Id checks', () => {
     world = world.setResource(ReservedKeys.ENTITY_REVIVAL_QUEUE, [10]);
     world.createEntities(2);
     expect(world.createEntities(2)).toEqual([10, 0]);
+    expect(satisfiesInvariant(world)).true;
   });
 });
 
@@ -52,10 +58,10 @@ describe('System Tests', () => {
     expect(systems[ReservedStages.UPDATE].has(sys1)).toBe(true);
     expect(systems['stage'].size).toBe(1);
     expect(systems['stage'].has(sys2)).toBe(true);
+    expect(satisfiesInvariant(world)).true;
   });
 
   test('Can add system dependencies', () => {
-    const a = defsys({}, () => new SystemResults());
     const world = createWorld()
       .addSystem(sys1)
       .addSystem(sys2)
@@ -71,6 +77,7 @@ describe('System Tests', () => {
     const systems = world.getSystems();
     expect(systems[ReservedStages.UPDATE].size).toBe(2);
     expect(systems[ReservedStages.UPDATE].has(sys1)).toBe(true);
+    expect(satisfiesInvariant(world)).true;
   });
 
   test('Adding system dependencies without adding the systems does nothing', () => {
@@ -88,6 +95,7 @@ describe('API Tests', () => {
     expect(store.hasEntity(1), 'Entity with id of 1 is missing').toBe(true);
     expect(store.getComponent(1)).toBe('hi');
     expect(ids.includes(1)).toBe(true);
+    expect(satisfiesInvariant(world)).true;
   });
 
   test('Add multiple components', () => {
@@ -102,6 +110,7 @@ describe('API Tests', () => {
     expect(store.getComponent(1)).toBe('there');
     expect(ids.includes(0)).toBe(true);
     expect(ids.includes(1)).toBe(true);
+    expect(satisfiesInvariant(world)).true;
   });
 
   test('Add component without ids', () => {
@@ -113,6 +122,7 @@ describe('API Tests', () => {
     expect(store.hasEntity(0), 'Entity with id of 0 is missing').toBe(true);
     expect(store.getComponent(0)).toBe('hi');
     expect(ids.includes(0)).toBe(true);
+    expect(satisfiesInvariant(world)).true;
   });
 
   test('Add multiple components without ids', () => {
@@ -127,6 +137,7 @@ describe('API Tests', () => {
     expect(store.getComponent(1)).toBe('there');
     expect(ids.includes(0)).toBe(true);
     expect(ids.includes(1)).toBe(true);
+    expect(satisfiesInvariant(world)).true;
   });
 
   test('Add event', () => {
@@ -136,6 +147,7 @@ describe('API Tests', () => {
     const events = world.getEvents<string>(eventName);
     expect(events.length, 'Expected a single tick event').toBe(1);
     expect(events[0]).toBe('hi');
+    expect(satisfiesInvariant(world)).true;
   });
 });
 
@@ -148,5 +160,33 @@ describe('Running The Game', () => {
     // World should exit immediately
     world.play();
     expect(1).toBe(1);
+  });
+
+  test('Can run startup stage', () => {
+    const data: Record<string, any> = {};
+    const sys1: System = () => {
+      data['run1'] = true;
+      return new SystemResults();
+    };
+    const sys2: System = () => {
+      data['run2'] = true;
+      data['rightOrder'] = data['run1'] ?? false;
+      return new SystemResults();
+    };
+
+    const world = new World()
+      .addSystem(sys1, ReservedStages.START_UP)
+      .addSystem(sys2, ReservedStages.START_UP)
+      .addSystemDependency(sys2, sys1)
+      .addPlugin(w => {
+        console.log(w);
+        return w;
+      })
+      .applyStage(ReservedStages.START_UP);
+
+    expect(satisfiesInvariant(world)).true;
+    expect(data['run1']).true;
+    expect(data['run2']).true;
+    expect(data['rightOrder']).true;
   });
 });

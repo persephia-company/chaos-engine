@@ -1,48 +1,47 @@
-import {SystemResults, changeEventName, defsys} from '@/lib/system';
+import {SystemResults, changeEventName} from '@/lib/system';
 import {wrap} from '@/lib/util';
 import {ReservedKeys} from '@/lib/world';
 import {Entity} from '@/types/entity';
-import {SystemChange} from '@/types/system';
+import {System, SystemChange} from '@/types/system';
 
 /**
  * Adds deleted entities to the revival queue to reclaim their id later.
  */
-export const reviveIDs = defsys(
-  {events: [changeEventName('delete', 'id')]},
-  ({events}) => {
-    const deadIDs = events[changeEventName('delete', 'id')] as Entity[];
-    return new SystemResults().update(
+export const reviveIDs: System = world => {
+  const deadIDs = world.getEvents<Entity>(changeEventName('delete', 'id'));
+  if (!deadIDs) return;
+
+  return new SystemResults()
+    .add(['resources', ReservedKeys.ENTITY_REVIVAL_QUEUE], new Set())
+    .update(
       ['resources', ReservedKeys.ENTITY_REVIVAL_QUEUE],
-      (q: Entity[]) => q.concat(deadIDs)
+      (q: Set<Entity>) => {
+        deadIDs.forEach(id => q.add(id));
+        return q;
+      }
     );
-  }
-);
+};
 
 /**
  * Keeps the maximum ID up to date when new ids are created.
  *
  * Note: Seems like it should cause gaps, but reviveIDs should handle it.
  */
-export const updateMaxID = defsys(
-  {
-    events: [changeEventName('add', 'id'), changeEventName('set', 'id')],
-  },
-  ({events}) => {
-    const addChanges = events[
-      changeEventName('add', 'id')
-    ] as SystemChange<Entity>[];
-    const setChanges = events[
-      changeEventName('set', 'id')
-    ] as SystemChange<Entity>[];
+export const updateMaxID: System = world => {
+  const addChanges = world.getEvents<SystemChange<Entity>>(
+    changeEventName('add', 'id')
+  );
+  const setChanges = world.getEvents<SystemChange<Entity>>(
+    changeEventName('set', 'id')
+  );
+  const changes = addChanges.concat(setChanges);
+  if (!changes.length) return;
 
-    const ids = addChanges
-      .concat(setChanges)
-      .flatMap(change => wrap(change.value) as Entity[]);
-    const max = Math.max(...ids);
+  const ids = changes.flatMap(change => wrap(change.value) as Entity[]);
+  const max = Math.max(...ids);
 
-    return new SystemResults().update<Entity>(
-      ['resources', ReservedKeys.MAX_ENTITY],
-      id => Math.max(max, id)
-    );
-  }
-);
+  return new SystemResults().update<Entity>(
+    ['resources', ReservedKeys.MAX_ENTITY],
+    id => Math.max(max, id)
+  );
+};
