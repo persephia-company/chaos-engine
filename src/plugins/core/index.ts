@@ -1,5 +1,5 @@
 import {SystemResults} from '@/lib/system';
-import {ReservedKeys, World} from '@/lib/world';
+import {World} from '@/lib/world';
 import {ReservedStages} from '@/types/world';
 import {reviveIDs, updateMaxID} from './ids';
 import {addChangeEvents} from './changes';
@@ -11,8 +11,9 @@ import {logStage} from './debug';
  */
 export const corePlugin = (world: World): World => {
   return world
-    .addSystem(resetEvents, ReservedStages.POST_STEP)
     .addSystem(addChangeEvents, ReservedStages.POST_STEP)
+    .addSystem(resetEvents, ReservedStages.POST_STEP)
+    .addSystemDependency(resetEvents, addChangeEvents)
     .addSystem(reviveIDs, ReservedStages.POST_BATCH)
     .addSystem(updateMaxID, ReservedStages.POST_BATCH);
 };
@@ -28,9 +29,3 @@ export const debugPlugin = (world: World): World => {
  * Deletes all events from the world. Designed to be called at the end of each step.
  */
 const resetEvents: System = () => new SystemResults().set(['events'], {});
-
-const initialResources: System = () =>
-  new SystemResults().add(
-    ['resources', ReservedKeys.ENTITY_REVIVAL_QUEUE],
-    new Set()
-  );
