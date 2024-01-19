@@ -4,6 +4,7 @@ import {Updateable} from '@/types/updateable';
 import {take, zip} from 'ramda';
 import {wrap} from './util';
 import {ChangeType} from '@/types/system';
+import {createSystemChange} from './system';
 
 export class SparseComponentStore<T>
   implements Updateable<SparseComponentStore<T>, T>, ComponentStore<T>
@@ -104,21 +105,22 @@ export class SparseComponentStore<T>
     ids?: number | number[],
     overwrite = false
   ): SparseComponentStore<T> {
+    const change = createSystemChange(method, path, values, ids);
     const logChangeError = (msg: string) => this.logChangeError(method, msg);
     if (path.length > 0) {
       return logChangeError(
-        `Encountered unexpected path in component store: ${path}`
+        `Encountered unexpected path in component store: ${change}`
       );
     }
     const idList = wrap(ids);
     if (idList.length === 0) {
-      return logChangeError('Missing ids from message.');
+      return logChangeError(`Missing ids from message: ${change}`);
     }
 
     const vals = wrap(values);
     if (idList.length !== vals.length) {
       return logChangeError(
-        `Mismatched length of ids and values -> ${idList.length} != ${vals.length}`
+        `Mismatched length of ids and values -> ${idList.length} != ${vals.length} in ${change}`
       );
     }
 
