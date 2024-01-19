@@ -1,5 +1,11 @@
 # @persephia/chaos-engine
 
+## 0.0.8
+
+### Patch Changes
+
+- 2718739: Fix bug which made world.set call add instead of set.
+
 ## 0.0.7
 
 ### Patch Changes
