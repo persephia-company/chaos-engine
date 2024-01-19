@@ -162,15 +162,19 @@ describe('Running The Game', () => {
     expect(1).toBe(1);
   });
 
+  // BUG: Startup stage running multiple times (3)
   test('Can run startup stage', () => {
-    const data: Record<string, any> = {};
+    let count1 = 0;
+    let count2 = 0;
+    let rightOrder = false;
+
     const sys1: System = () => {
-      data['run1'] = true;
+      count1 += 1;
       return new SystemResults();
     };
     const sys2: System = () => {
-      data['run2'] = true;
-      data['rightOrder'] = data['run1'] ?? false;
+      count2 += 1;
+      rightOrder = count1 === 1;
       return new SystemResults();
     };
 
@@ -185,8 +189,8 @@ describe('Running The Game', () => {
       .applyStage(ReservedStages.START_UP);
 
     expect(satisfiesInvariant(world)).true;
-    expect(data['run1']).true;
-    expect(data['run2']).true;
-    expect(data['rightOrder']).true;
+    expect(count1).toBe(1);
+    expect(count2).toBe(1);
+    expect(rightOrder).true;
   });
 });

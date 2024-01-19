@@ -128,6 +128,9 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     return this.setResource(ReservedKeys.SYSTEMS, updatedSystems);
   };
 
+  /**
+   * Specify that a system must run after its dependency.
+   */
   addSystemDependency = (system: System, dependency: System): World => {
     const dependencies = this.getSystemDependencies();
     const systemDependencies: Set<string> = R.propOr(
@@ -296,7 +299,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     ) as Record<string, System[][]>;
 
     const _applyStage = (_stage: string, world: World) => {
-      const batches = stageBatches[stage];
+      const batches = stageBatches[_stage];
       if (!batches) return world;
 
       const applySystemsBatch = (world: World, batch: System[]): World => {
