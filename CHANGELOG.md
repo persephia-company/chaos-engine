@@ -1,5 +1,12 @@
 # @persephia/chaos-engine
 
+## 0.0.9
+
+### Patch Changes
+
+- 25f7ab0: Fixed issues with ambiguous exports of Reserved Stages.
+  Added ability to add bundles to system results.
+
 ## 0.0.8
 
 ### Patch Changes
