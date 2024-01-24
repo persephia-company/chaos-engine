@@ -46,6 +46,10 @@ export class SystemResults implements Updateable<SystemResults> {
     return new SystemResults([...this.changes, change]);
   }
 
+  addChanges<T>(changes: SystemChange<T>[]): SystemResults {
+    return this.merge(new SystemResults(changes));
+  }
+
   merge(results: SystemResults): SystemResults {
     return new SystemResults(this.changes.concat(results.changes));
   }
@@ -84,6 +88,17 @@ export class SystemResults implements Updateable<SystemResults> {
   ): SystemResults {
     const change = createSystemChange('delete', path, values, ids);
     return this.addChange(change);
+  }
+
+  addBundle(bundle: Record<string, any>, id?: number) {
+    // TODO: Figure out how to share a non-specified id without world.
+    const createChange = (component: string, value: any) =>
+      createSystemChange('add', ['components', component], value, id);
+
+    const changes = Object.entries(bundle).map(([component, value]) =>
+      createChange(component, value)
+    );
+    return this.addChanges(changes);
   }
 }
 

@@ -29,6 +29,15 @@ describe('System Results', () => {
     expect(sysres.changes.length).toBe(1);
     expect(other.changes.length).toBe(2);
   });
+  it('Should allow bundles with specified ids', () => {
+    const bundle = {
+      hp: 10,
+      armor: 'heavy',
+    };
+    const sysres = new SystemResults().addBundle(bundle, 1);
+    expect(sysres.changes.length).toBe(2);
+    expect(sysres.changes.every(change => change.ids === 1)).true;
+  });
 });
 
 describe('Required Events Helper', () => {
