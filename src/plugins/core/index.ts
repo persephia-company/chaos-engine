@@ -15,7 +15,6 @@ export const corePlugin = (world: World): World => {
   return world
     .addSystem(resetRawChangesIndex, ReservedStages.PRE_STEP)
     .addSystem(resetEvents, ReservedStages.POST_STEP)
-    .addSystemDependency(resetEvents, addChangeEvents)
     .addSystem(addChangeEvents, ReservedStages.POST_BATCH)
     .addSystem(reviveIDs, ReservedStages.POST_BATCH)
     .addSystemDependency(reviveIDs, addChangeEvents)

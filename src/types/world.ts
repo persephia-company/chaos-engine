@@ -12,6 +12,8 @@ export type WorldStore = {
 export interface WorldAPI<A> {
   createEntity: () => Entity;
   createEntities: (n: number) => Entity[];
+  deleteEntity: (id: Entity) => A;
+  deleteEntities: (ids: Entity[]) => A;
   getResourceOr: <T>(or: T, key: string) => T;
   getResource: <T>(key: string) => T | undefined;
   setResource: <T>(key: string, value: T) => A;

@@ -1,7 +1,7 @@
 import {logger} from '@/lib/logger';
 import {SystemResults, changeEventName} from '@/lib/system';
 import {wrap} from '@/lib/util';
-import {ReservedKeys} from '@/lib/world';
+import {RESOURCES, ReservedKeys} from '@/lib/world';
 import {Entity} from '@/types/entity';
 import {System, SystemChange} from '@/types/system';
 
@@ -10,12 +10,16 @@ import {System, SystemChange} from '@/types/system';
  */
 export const reviveIDs: System = world => {
   const deletions = world.getEvents<SystemChange<Entity>>(
-    changeEventName('delete', 'id')
+    changeEventName('delete', ReservedKeys.ID)
   );
   if (!deletions.length) return;
 
   const deadIDs = deletions.flatMap(change => wrap(change.ids));
-  const queuePath = ['resources', ReservedKeys.ENTITY_REVIVAL_QUEUE];
+  logger.info({msg: 'Dead IDs', deadIDs});
+  const queuePath = [RESOURCES, ReservedKeys.ENTITY_REVIVAL_QUEUE];
+
+  // TODO: This isn't working, looks like the next ids ignore the queue and pull from MAX_ID
+
   return (
     new SystemResults()
       // Add a new resource if one doesn't already exist
@@ -40,7 +44,6 @@ export const updateMaxID: System = world => {
     changeEventName('set', 'id')
   );
   const changes = addChanges.concat(setChanges);
-  logger.debug({msg: 'Updating max id', setChanges, addChanges, changes});
   if (changes.length === 0) return;
 
   const ids = changes.flatMap(change => wrap(change.value) as Entity[]);
@@ -52,7 +55,6 @@ export const updateMaxID: System = world => {
     msg: 'Max ID check',
     currentMax,
     max,
-    ids,
     willUpdate: max > currentMax,
   });
   let result = new SystemResults();

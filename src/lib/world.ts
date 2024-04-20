@@ -85,6 +85,22 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     return toRevive.concat(toCreate);
   }
 
+  deleteEntity(id: Entity) {
+    for (const store of Object.values(this.components)) {
+      store.remove(id);
+    }
+    return this;
+  }
+
+  deleteEntities(ids: Entity[]) {
+    for (const store of Object.values(this.components)) {
+      for (const id of ids) {
+        store.remove(id);
+      }
+    }
+    return this;
+  }
+
   setResource = <T>(key: string, value: T) => {
     this.resources[key] = value;
     return this;
@@ -515,7 +531,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
 
   set<T>(path: string[], values: T | T[], ids?: number | number[]): World {
     // TODO: check validity
-    if (path[0] === 'components') {
+    if (path[0] === COMPONENTS) {
       return this.forwardToComponents(
         createSystemChange<T>('set', path, values, ids)
       );
@@ -530,13 +546,20 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     ids?: number | number[]
   ): World {
     // TODO: check validity
-    if (path[0] === 'components') {
-      return this.forwardToComponents(
-        createSystemChange('delete', path, values, ids) as SystemChange<unknown>
-      );
+    if (path[0] !== COMPONENTS) {
+      objDelete(path, wrap(values), this);
+      return this;
     }
-    objDelete(path, wrap(values), this);
-    return this;
+
+    // Must be components
+    // Special case where we delete the entity
+    if (path[1] === ReservedKeys.ID) {
+      return this.deleteEntities(wrap(ids));
+    }
+
+    return this.forwardToComponents(
+      createSystemChange('delete', path, values, ids) as SystemChange<unknown>
+    );
   }
 
   update<T>(
@@ -545,7 +568,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     ids?: number | number[]
   ): World {
     // TODO: check validity
-    if (path[0] === 'components') {
+    if (path[0] === COMPONENTS) {
       return this.forwardToComponents(
         createSystemChange('update', path, f, ids)
       );
