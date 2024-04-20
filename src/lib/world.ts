@@ -18,19 +18,19 @@ import {
   wrap,
 } from './util';
 
-export enum ReservedKeys {
-  STAGE = 'stage',
-  GAME_SHOULD_QUIT = 'game-should-quit',
-  SYSTEMS = 'systems',
-  SYSTEM_DEPENDENCIES = 'system-dependencies',
-  SYSTEM_DEPENDENCY_GRAPH = 'system-dependency-graph',
-  SYSTEM_DEPENDENCY_HASH = 'system-dependency-hash',
-  SYSTEM_BATCHES = 'system-batches',
-  STAGE_DEPENDENCIES = 'stage-dependencies',
-  RAW_CHANGES = 'raw-changes',
-  MAX_ENTITY = 'max-entity',
-  ENTITY_REVIVAL_QUEUE = 'entity-revival-queue',
-}
+export const ReservedKeys = {
+  STAGE: 'stage',
+  GAME_SHOULD_QUIT: 'game-should-quit',
+  SYSTEMS: 'systems',
+  SYSTEM_DEPENDENCIES: 'system-dependencies',
+  SYSTEM_DEPENDENCY_GRAPH: 'system-dependency-graph',
+  SYSTEM_DEPENDENCY_HASH: 'system-dependency-hash',
+  SYSTEM_BATCHES: 'system-batches',
+  STAGE_DEPENDENCIES: 'stage-dependencies',
+  RAW_CHANGES: 'raw-changes',
+  MAX_ENTITY: 'max-entity',
+  ENTITY_REVIVAL_QUEUE: 'entity-revival-queue',
+} as const;
 
 export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   components: Record<string, ComponentStore<unknown>>;
