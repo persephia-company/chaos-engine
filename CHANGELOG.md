@@ -1,5 +1,11 @@
 # @persephia/chaos-engine
 
+## 0.0.10
+
+### Patch Changes
+
+- 044d3bf: Fix vulnerabilities and properly export built-in Stages and Keys
+
 ## 0.0.9
 
 ### Patch Changes
