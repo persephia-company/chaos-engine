@@ -19,6 +19,10 @@ const add: System = (world: World) => {
   return new SystemResults().addComponents(COMPONENT, 1);
 };
 
+const addToOne: System = (world: World) => {
+  return new SystemResults().setComponents(COMPONENT, 1, 1);
+};
+
 const del: System = (world: World) => {
   return new SystemResults().deleteComponents(ReservedKeys.ID, [], [0, 1, 2]);
 };
@@ -29,14 +33,22 @@ describe('Test id related plugins', () => {
     expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(-1);
 
     world = world.step();
-    logger.info({msg: 'Resources', resources: world.resources});
     expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(0);
 
     world = world.step();
     expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(1);
     logger.info('HI');
   });
-  test('Adding a component to an existing entity leaves the max id the same', () => {});
+  test('Adding a component to an existing entity leaves the max id the same', () => {
+    let world = createWorld().addSystem(addToOne);
+    expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(-1);
+
+    world = world.step();
+    expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(1);
+
+    world = world.step();
+    expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(1);
+  });
   test('Deleting the entity id component should remove it from all components', () => {});
   test('Deleting the entity id component should place it on the revival queue', () => {});
   test('New ids are taken first from the revival queue', () => {});

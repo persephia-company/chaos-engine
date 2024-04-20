@@ -50,18 +50,25 @@ export class SystemResults implements Updateable<SystemResults> {
     this.changes = changes;
   }
 
+  /**
+   * Creates and returns a new SystemResults with the additional change.
+   */
   addChange<T>(change: SystemChange<T>): SystemResults {
-    this.changes.push(change);
-    return this;
+    return new SystemResults([...this.changes, change]);
   }
 
+  /**
+   * Creates and returns a new SystemResults with the additional changes.
+   */
   addChanges<T>(changes: SystemChange<T>[]): SystemResults {
     return this.merge(new SystemResults(changes));
   }
 
+  /**
+   * Creates and returns a new SystemResults with the additional changes.
+   */
   merge(results: SystemResults): SystemResults {
-    this.changes.push(...results.changes);
-    return this;
+    return new SystemResults(this.changes.concat(results.changes));
   }
 
   add<T>(
@@ -78,7 +85,6 @@ export class SystemResults implements Updateable<SystemResults> {
     values: T | T[],
     ids?: number | number[]
   ): SystemResults {
-    logger.debug('I SET');
     const change = createSystemChange('set', path, values, ids);
     return this.addChange(change);
   }

@@ -11,7 +11,7 @@ import {logger} from '@/lib/logger';
  * Adds essential library plugins to the world. The engine will not function as expected without calling this.
  */
 export const corePlugin = (world: World): World => {
-  logger.info('Adding core plugins');
+  // logger.info('Adding core plugins');
   return world
     .addSystem(resetRawChangesIndex, ReservedStages.PRE_STEP)
     .addSystem(resetEvents, ReservedStages.POST_STEP)

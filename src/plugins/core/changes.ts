@@ -57,6 +57,7 @@ export const addChangeEvents: System = world => {
   // NOTE: Every change with an id is implicitly also a change event for ids
   const idChanges = rawChanges
     .filter(isModifyingId)
+    .filter(change => !isChangeEvent(change))
     .map(change => createIDChange(change.method, wrap(change.ids)))
     .map(createChangeEvent);
 
