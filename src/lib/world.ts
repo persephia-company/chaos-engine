@@ -34,7 +34,7 @@ export const ReservedKeys = {
   SYSTEM_BATCHES: 'system-batches',
   STAGE_DEPENDENCIES: 'stage-dependencies',
   RAW_CHANGES: 'raw-changes',
-  MAX_ENTITY: 'max-entity',
+  MAX_ID: 'max-id',
   ENTITY_REVIVAL_QUEUE: 'entity-revival-queue',
   RAW_CHANGES_INDEX: 'raw-changes-index',
 } as const;
@@ -78,7 +78,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       new Set(),
       ReservedKeys.ENTITY_REVIVAL_QUEUE
     );
-    const maxEntity: Entity = this.getResourceOr(-1, ReservedKeys.MAX_ENTITY);
+    const maxEntity: Entity = this.getResourceOr(-1, ReservedKeys.MAX_ID);
     const toRevive = R.take(n, Array.from(revivalQueue));
     const toCreate = R.times(i => maxEntity + 1 + i, n - toRevive.length);
 

@@ -26,14 +26,14 @@ const del: System = (world: World) => {
 describe('Test id related plugins', () => {
   test('Adding an entity increases the max entity id', () => {
     let world = createWorld().addSystem(add);
-    expect(world.getResourceOr(-1, ReservedKeys.MAX_ENTITY)).toBe(-1);
+    expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(-1);
 
     world = world.step();
     logger.info({msg: 'Resources', resources: world.resources});
-    expect(world.getResourceOr(-1, ReservedKeys.MAX_ENTITY)).toBe(0);
+    expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(0);
 
     world = world.step();
-    expect(world.getResourceOr(-1, ReservedKeys.MAX_ENTITY)).toBe(1);
+    expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(1);
     logger.info('HI');
   });
   test('Adding a component to an existing entity leaves the max id the same', () => {});

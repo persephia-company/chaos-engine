@@ -46,7 +46,7 @@ export const updateMaxID: System = world => {
   const ids = changes.flatMap(change => wrap(change.value) as Entity[]);
   const max = Math.max(...ids);
 
-  const currentMax = world.getResourceOr(-1, ReservedKeys.MAX_ENTITY);
+  const currentMax = world.getResourceOr(-1, ReservedKeys.MAX_ID);
 
   logger.debug({
     msg: 'Max ID check',
@@ -58,7 +58,7 @@ export const updateMaxID: System = world => {
   let result = new SystemResults();
 
   if (max > currentMax) {
-    result = result.setResource(ReservedKeys.MAX_ENTITY, max);
+    result = result.setResource(ReservedKeys.MAX_ID, max);
   }
 
   return result;
