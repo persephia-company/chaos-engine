@@ -8,8 +8,7 @@ import {
 
 import * as R from 'ramda';
 import {Updateable} from '@/types/updateable';
-import {World} from '@/lib/world';
-import {COMPONENTS} from '..';
+import {EVENTS, RESOURCES, World, COMPONENTS} from '@/lib/world';
 
 /**
  * Returns the unique identifier used for changeEvents of a specific key and method.
@@ -102,13 +101,104 @@ export class SystemResults implements Updateable<SystemResults> {
     return this.addChanges(changes);
   }
 
-  // Helper methods
-  addComponent<T>(
+  addComponents<T>(
     componentName: string,
     values: T | T[],
     ids?: number | number[]
   ) {
     const path = [COMPONENTS, componentName];
+    return this.add(path, values, ids);
+  }
+
+  setComponents<T>(
+    componentName: string,
+    values: T | T[],
+    ids?: number | number[]
+  ) {
+    const path = [COMPONENTS, componentName];
+    return this.set(path, values, ids);
+  }
+
+  deleteComponents(
+    componentName: string,
+    values: string | string[],
+    ids?: number | number[]
+  ) {
+    const path = [COMPONENTS, componentName];
+    return this.delete(path, values, ids);
+  }
+
+  updateComponents<T>(
+    componentName: string,
+    f: (value: T) => T,
+    ids?: number | number[]
+  ): SystemResults {
+    const path = [COMPONENTS, componentName];
+    return this.update(path, f, ids);
+  }
+
+  addResource<T>(
+    resourceName: string,
+    value: T | T[],
+    ids?: number | number[]
+  ) {
+    const path = [RESOURCES, resourceName];
+    return this.add(path, value, ids);
+  }
+
+  setResource<T>(
+    resourceName: string,
+    values: T | T[],
+    ids?: number | number[]
+  ) {
+    const path = [RESOURCES, resourceName];
+    return this.set(path, values, ids);
+  }
+
+  deleteResource(
+    resourceName: string,
+    values: string | string[],
+    ids?: number | number[]
+  ) {
+    const path = [RESOURCES, resourceName];
+    return this.delete(path, values, ids);
+  }
+
+  updateResource<T>(
+    resourceName: string,
+    f: (value: T) => T,
+    ids?: number | number[]
+  ): SystemResults {
+    const path = [RESOURCES, resourceName];
+    return this.update(path, f, ids);
+  }
+
+  addEvents<T>(eventName: string, values: T | T[], ids?: number | number[]) {
+    const path = [EVENTS, eventName];
+    return this.add(path, values, ids);
+  }
+
+  setEvents<T>(eventName: string, values: T | T[], ids?: number | number[]) {
+    const path = [EVENTS, eventName];
+    return this.set(path, values, ids);
+  }
+
+  deleteEvents(
+    eventName: string,
+    values: string | string[],
+    ids?: number | number[]
+  ) {
+    const path = [EVENTS, eventName];
+    return this.delete(path, values, ids);
+  }
+
+  updateEvents<T>(
+    eventName: string,
+    f: (value: T) => T,
+    ids?: number | number[]
+  ): SystemResults {
+    const path = [EVENTS, eventName];
+    return this.update(path, f, ids);
   }
 }
 

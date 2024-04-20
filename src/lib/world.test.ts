@@ -2,7 +2,7 @@ import {ReservedKeys, World} from './world';
 import {range} from 'ramda';
 import {describe, expect, test} from 'vitest';
 import {SystemResults, Plugins, System} from '..';
-import {ReservedStages} from '@/types/world';
+import {ReservedStages} from '@/lib/world';
 
 const createWorld = () => {
   return new World().addPlugin(Plugins.corePlugin);
