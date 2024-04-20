@@ -1,3 +1,4 @@
+import {logger} from '@/lib/logger';
 import {SystemResults, changeEventName} from '@/lib/system';
 import {wrap} from '@/lib/util';
 import {ReservedKeys} from '@/lib/world';
@@ -39,13 +40,26 @@ export const updateMaxID: System = world => {
     changeEventName('set', 'id')
   );
   const changes = addChanges.concat(setChanges);
-  if (!changes.length) return;
+  logger.debug({msg: 'Updating max id', setChanges, addChanges, changes});
+  if (changes.length === 0) return;
 
   const ids = changes.flatMap(change => wrap(change.value) as Entity[]);
   const max = Math.max(...ids);
 
-  return new SystemResults().update<Entity>(
-    ['resources', ReservedKeys.MAX_ENTITY],
-    id => Math.max(max, id)
-  );
+  const currentMax = world.getResourceOr(-1, ReservedKeys.MAX_ENTITY);
+
+  logger.debug({
+    msg: 'Max ID check',
+    currentMax,
+    max,
+    ids,
+    willUpdate: max > currentMax,
+  });
+  let result = new SystemResults();
+
+  if (max > currentMax) {
+    result = result.setResource(ReservedKeys.MAX_ENTITY, max);
+  }
+
+  return result;
 };

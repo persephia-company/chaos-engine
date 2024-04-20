@@ -35,6 +35,7 @@
     "@types/node": "20.8.2",
     "@types/ramda": "^0.29.9",
     "gts": "^5.2.0",
+    "pino-pretty": "^11.0.0",
     "tsup": "^8.0.1",
     "typescript": "~5.2.0",
     "vite-tsconfig-paths": "^4.2.3",
@@ -44,6 +45,7 @@
     "@datastructures-js/queue": "^4.2.3",
     "dependency-graph": "^1.0.0",
     "json-stable-stringify": "^1.1.0",
+    "pino": "^8.20.0",
     "ramda": "^0.29.1"
   },
   "engines": {

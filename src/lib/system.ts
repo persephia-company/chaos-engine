@@ -9,6 +9,9 @@ import {
 import * as R from 'ramda';
 import {Updateable} from '@/types/updateable';
 import {EVENTS, RESOURCES, World, COMPONENTS} from '@/lib/world';
+import {logger} from './logger';
+
+export const RESERVED_DIVIDER = '-->';
 
 /**
  * Returns the unique identifier used for changeEvents of a specific key and method.
@@ -23,7 +26,12 @@ export const changeEventName = (
   method: ChangeType | 'created' | 'modified',
   key: string
 ) => {
-  return `${method}--${key}`;
+  return `${method}${RESERVED_DIVIDER}${key}`;
+};
+
+export const isChangeEvent = (change: SystemChange): boolean => {
+  const key = change.path[1];
+  return key.includes(RESERVED_DIVIDER);
 };
 
 export const createSystemChange = <T>(
@@ -43,7 +51,8 @@ export class SystemResults implements Updateable<SystemResults> {
   }
 
   addChange<T>(change: SystemChange<T>): SystemResults {
-    return new SystemResults([...this.changes, change]);
+    this.changes.push(change);
+    return this;
   }
 
   addChanges<T>(changes: SystemChange<T>[]): SystemResults {
@@ -51,7 +60,8 @@ export class SystemResults implements Updateable<SystemResults> {
   }
 
   merge(results: SystemResults): SystemResults {
-    return new SystemResults(this.changes.concat(results.changes));
+    this.changes.push(...results.changes);
+    return this;
   }
 
   add<T>(
@@ -68,6 +78,7 @@ export class SystemResults implements Updateable<SystemResults> {
     values: T | T[],
     ids?: number | number[]
   ): SystemResults {
+    logger.debug('I SET');
     const change = createSystemChange('set', path, values, ids);
     return this.addChange(change);
   }
@@ -137,40 +148,24 @@ export class SystemResults implements Updateable<SystemResults> {
     return this.update(path, f, ids);
   }
 
-  addResource<T>(
-    resourceName: string,
-    value: T | T[],
-    ids?: number | number[]
-  ) {
+  addResource<T>(resourceName: string, value: T | T[]) {
     const path = [RESOURCES, resourceName];
-    return this.add(path, value, ids);
+    return this.add(path, value);
   }
 
-  setResource<T>(
-    resourceName: string,
-    values: T | T[],
-    ids?: number | number[]
-  ) {
+  setResource<T>(resourceName: string, values: T | T[]) {
     const path = [RESOURCES, resourceName];
-    return this.set(path, values, ids);
+    return this.set(path, values);
   }
 
-  deleteResource(
-    resourceName: string,
-    values: string | string[],
-    ids?: number | number[]
-  ) {
+  deleteResource(resourceName: string, values: string | string[]) {
     const path = [RESOURCES, resourceName];
-    return this.delete(path, values, ids);
+    return this.delete(path, values);
   }
 
-  updateResource<T>(
-    resourceName: string,
-    f: (value: T) => T,
-    ids?: number | number[]
-  ): SystemResults {
+  updateResource<T>(resourceName: string, f: (value: T) => T): SystemResults {
     const path = [RESOURCES, resourceName];
-    return this.update(path, f, ids);
+    return this.update(path, f);
   }
 
   addEvents<T>(eventName: string, values: T | T[], ids?: number | number[]) {

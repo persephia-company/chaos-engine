@@ -1,42 +1,43 @@
-import {World} from '@/lib/world';
+import {ReservedKeys, ReservedStages, World} from '@/lib/world';
 import {describe, expect, test} from 'vitest';
 import {SystemResults, Plugins, System} from '../..';
-import {ReservedStages} from '@/lib/world';
+import {logger} from '@/lib/logger';
+import {logNewRawChanges} from './debug';
 
 const createWorld = () => {
-  return new World().addPlugin(Plugins.corePlugin);
+  return new World()
+    .addPlugin(Plugins.corePlugin)
+    .addSystem(logNewRawChanges, ReservedStages.POST_BATCH);
 };
 
 const satisfiesInvariant = (world: World) => {
   return world instanceof World;
 };
 
+const COMPONENT = 'TEST';
+const add: System = (world: World) => {
+  return new SystemResults().addComponents(COMPONENT, 1);
+};
+
+const del: System = (world: World) => {
+  return new SystemResults().deleteComponents(ReservedKeys.ID, [], [0, 1, 2]);
+};
+
 describe('Test id related plugins', () => {
-  test('Can run startup stage', () => {
-    let count1 = 0;
-    let count2 = 0;
-    let rightOrder = false;
-    let component = 'X';
+  test('Adding an entity increases the max entity id', () => {
+    let world = createWorld().addSystem(add);
+    expect(world.getResourceOr(-1, ReservedKeys.MAX_ENTITY)).toBe(-1);
 
-    const sys1: System = () => {
-      count1 += 1;
-    };
-    const sys2: System = () => {
-      count2 += 1;
-      rightOrder = count1 === 1;
-      return new SystemResults();
-    };
+    world = world.step();
+    logger.info({msg: 'Resources', resources: world.resources});
+    expect(world.getResourceOr(-1, ReservedKeys.MAX_ENTITY)).toBe(0);
 
-    const world = new World()
-      .addPlugin(Plugins.corePlugin)
-      .addSystem(sys1, ReservedStages.START_UP)
-      .addSystem(sys2, ReservedStages.START_UP)
-      .addSystemDependency(sys2, sys1)
-      .applyStage(ReservedStages.START_UP);
-
-    expect(satisfiesInvariant(world)).true;
-    expect(count1).toBe(1);
-    expect(count2).toBe(1);
-    expect(rightOrder).true;
+    world = world.step();
+    expect(world.getResourceOr(-1, ReservedKeys.MAX_ENTITY)).toBe(1);
+    logger.info('HI');
   });
+  test('Adding a component to an existing entity leaves the max id the same', () => {});
+  test('Deleting the entity id component should remove it from all components', () => {});
+  test('Deleting the entity id component should place it on the revival queue', () => {});
+  test('New ids are taken first from the revival queue', () => {});
 });

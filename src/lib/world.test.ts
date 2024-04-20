@@ -181,10 +181,10 @@ describe('Running The Game', () => {
       .addSystem(sys1, ReservedStages.START_UP)
       .addSystem(sys2, ReservedStages.START_UP)
       .addSystemDependency(sys2, sys1)
-      .addPlugin(w => {
-        console.log(w);
-        return w;
-      })
+      // .addPlugin(w => {
+      //   console.log(w);
+      //   return w;
+      // })
       .applyStage(ReservedStages.START_UP);
 
     expect(satisfiesInvariant(world)).true;

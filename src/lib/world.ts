@@ -17,12 +17,14 @@ import {
   objUpdate,
   wrap,
 } from './util';
+import {logger} from './logger';
 
 export const COMPONENTS = 'components';
 export const RESOURCES = 'resources';
 export const EVENTS = 'events';
 
 export const ReservedKeys = {
+  ID: 'id',
   STAGE: 'stage',
   GAME_SHOULD_QUIT: 'game-should-quit',
   SYSTEMS: 'systems',
@@ -34,6 +36,7 @@ export const ReservedKeys = {
   RAW_CHANGES: 'raw-changes',
   MAX_ENTITY: 'max-entity',
   ENTITY_REVIVAL_QUEUE: 'entity-revival-queue',
+  RAW_CHANGES_INDEX: 'raw-changes-index',
 } as const;
 
 export const ReservedStages = {
@@ -63,7 +66,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
    * Returns all entities within the world.
    */
   getEntities(): Entity[] {
-    return this.getComponentStore<Entity>('id').getComponents();
+    return this.getComponentStore<Entity>(ReservedKeys.ID).getComponents();
   }
 
   createEntity(): Entity {
@@ -131,7 +134,8 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   /**
    * Adds a new System to the world.
    */
-  addSystem = (system: System, stage: string = ReservedStages.UPDATE) => {
+  addSystem(system: System, stage: string = ReservedStages.UPDATE) {
+    logger.debug({msg: 'Adding System', system: system.name, stage});
     const systems = this.getSystems();
     const stageSystems: Set<System> = R.propOr(
       new Set<System>(),
@@ -142,7 +146,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
 
     const updatedSystems = R.assoc(stage, stageSystems, systems);
     return this.setResource(ReservedKeys.SYSTEMS, updatedSystems);
-  };
+  }
 
   /**
    * Specify that a system must run after its dependency.
@@ -196,6 +200,8 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
    * Queries the world for all supplied components
    */
   query = <T extends any[]>(components: string[]): T[] => {
+    logger.debug({name: 'World.query', components});
+
     const componentStores = components
       .map(component => this.components[component])
       .filter(store => store !== undefined);
@@ -344,19 +350,24 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       return R.reduce(applyBatchInterleaved, world, batches);
     };
 
+    logger.debug(`PRE-STAGE ${stage}`);
     world = _applyStage(ReservedStages.PRE_STAGE, world);
+    logger.debug(`STAGE ${stage}`);
     world = _applyStage(stage, world);
+    logger.debug(`POST-STAGE ${stage}`);
     world = _applyStage(ReservedStages.POST_STAGE, world);
     return world;
   };
 
   applySystem = (system: System) => {
+    logger.debug({msg: `applySystem: ${system.name}`, system: system.name});
     const results = system(this);
     const result = results ? this.applySystemResults(results) : this;
     return result;
   };
 
   applySystemResults = (results: SystemResults): World => {
+    logger.debug({msg: 'Apply System Results', results});
     const applyChange = (world: World, change: SystemChange<any>): World => {
       // TODO: move this into individual api calls
       // Emit raw changes events for future plugins
@@ -364,9 +375,14 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
         change.ids = world.createEntities(wrap(change.value).length);
       }
       return world
-        .add(['events', ReservedKeys.RAW_CHANGES], change)
+        .add([EVENTS, ReservedKeys.RAW_CHANGES], change)
         .applySystemChange(change);
     };
+    // let world: World = this;
+    // for (const change of results.changes) {
+    //   world = applyChange(world, change);
+    // }
+    // return world;
     return R.reduce(applyChange, this, results.changes);
   };
 
@@ -390,7 +406,9 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     return buildDependencyGraph(stages, dependencies);
   };
 
-  step = (): World => {
+  step(): World {
+    logger.debug('STEPPING');
+
     // TODO: Cache this
     const graph = this.buildStageDependencyGraph();
     const stageOrder = graph
@@ -399,6 +417,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
         stage => !(Object.values(ReservedStages) as string[]).includes(stage)
       );
 
+    logger.debug({msg: 'World pre step', this: this});
     let world = this.applyStage(ReservedStages.PRE_STEP);
     world = world.applyStage(ReservedStages.UPDATE);
     // Perform user defined stages.
@@ -407,8 +426,10 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       world,
       stageOrder
     );
-    return world.applyStage(ReservedStages.POST_STEP);
-  };
+    world = world.applyStage(ReservedStages.POST_STEP);
+    logger.debug({msg: 'World post step', world});
+    return world;
+  }
 
   isFinished = (): boolean => {
     return this.getResourceOr(false, ReservedKeys.GAME_SHOULD_QUIT);
@@ -438,22 +459,24 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     const {method, path, value} = change;
 
     // Add ids
-    let entities = this.getComponentStore<Entity>('id');
     const ids = wrap(change.ids);
-    entities = R.reduce(
-      (store: typeof entities, id: Entity) => store.insert(id, id),
-      entities,
-      ids
-    );
+    let idStore = this.getComponentStore<Entity>(ReservedKeys.ID);
+    for (const id of ids) {
+      idStore = idStore.insert(id, id);
+    }
 
+    logger.debug({msg: 'forwarding to components', change, ids});
+
+    // Call the appropriate method on the store
     const component = path[1];
     const remainingPath = R.drop(2, path);
     let store = this.getComponentStore(component);
     store = store[method](remainingPath, value as any, ids);
 
+    // Update our worlds stores to reflect our changes
     return this.setComponentStore(component, store).setComponentStore(
-      'id',
-      entities
+      ReservedKeys.ID,
+      idStore
     );
   }
 
@@ -462,6 +485,12 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       // Add Entity IDs if not specified.
       if (!wrap(ids).length) {
         ids = this.createEntities(wrap(values).length);
+        logger.debug({
+          msg: 'No ids found for World.add, adding our own...',
+          path,
+          values,
+          ids,
+        });
       }
       // TODO: check validity
       const change = createSystemChange('add', path, values, ids);

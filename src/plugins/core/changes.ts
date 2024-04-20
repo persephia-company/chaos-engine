@@ -1,31 +1,73 @@
-import {SystemResults, changeEventName, createSystemChange} from '@/lib/system';
+import {
+  SystemResults,
+  changeEventName,
+  createSystemChange,
+  isChangeEvent,
+} from '@/lib/system';
 import {first, second, wrap} from '@/lib/util';
-import {ReservedKeys} from '@/lib/world';
-import {System, SystemChange} from '@/types/system';
+import {COMPONENTS, EVENTS, ReservedKeys} from '@/lib/world';
+import {ChangeType, System, SystemChange} from '@/types/system';
 import {hasPath, zip} from 'ramda';
+
+const createChangeEvent = (
+  rawChange: SystemChange<any>
+): SystemChange<SystemChange> => {
+  const key = rawChange.path[1];
+  return createSystemChange(
+    'add',
+    [EVENTS, changeEventName(rawChange.method, key as string)],
+    rawChange
+  );
+};
+
+const createIDChange = (method: ChangeType, ids: number[]) => {
+  return createSystemChange(method, [COMPONENTS, ReservedKeys.ID], ids, ids);
+};
 
 /**
  * Splits raw change events into per-key events that can be listened to individually.
  *
- * e.g. enables a user to listen to the "add:player" event from other systems.
+ * e.g. enables a user to listen to the "add--player" event from other systems.
  * @see changeEventName for a useful utility here.
+ *
+ * This should be called after each batch so that the id systems can work properly, but
+ * to do so, we have to keep track of how many events we've processed so far. We do this
+ * by storing a resource (ReservedKeys.RAW_CHANGES_INDEX) which tracks the index up to
+ * which we've already processed.
  */
 export const addChangeEvents: System = world => {
-  const rawChanges = world.getEvents<SystemChange<unknown>>(
+  const rawIndex = world.getResourceOr(0, ReservedKeys.RAW_CHANGES_INDEX);
+  let rawChanges = world.getEvents<SystemChange<unknown>>(
     ReservedKeys.RAW_CHANGES
   );
-  if (!rawChanges.length) return;
+  const eventCount = rawChanges.length;
+  // NOTE: Only add events we haven't already processed so far.
+  rawChanges = rawChanges.slice(rawIndex);
 
-  const buildChange = (rawChange: SystemChange<unknown>) => {
+  const isModifyingId = (rawChange: SystemChange<unknown>): boolean => {
     const key = rawChange.path[1];
-    return createSystemChange(
-      'add',
-      ['events', changeEventName(rawChange.method, key as string)],
-      rawChange
-    );
+    return wrap(rawChange.ids).length > 0 && key !== ReservedKeys.ID;
   };
 
-  return new SystemResults(rawChanges.map(buildChange));
+  // NOTE: Only make events for changes that arent already changeEvents
+  const changeEvents = rawChanges
+    .filter(change => !isChangeEvent(change))
+    .map(createChangeEvent);
+
+  // NOTE: Every change with an id is implicitly also a change event for ids
+  const idChanges = rawChanges
+    .filter(isModifyingId)
+    .map(change => createIDChange(change.method, wrap(change.ids)))
+    .map(createChangeEvent);
+
+  return new SystemResults()
+    .addChanges(idChanges)
+    .addChanges(changeEvents)
+    .setResource(ReservedKeys.RAW_CHANGES_INDEX, eventCount);
+};
+
+export const resetRawChangesIndex: System = world => {
+  return new SystemResults().setResource(ReservedKeys.RAW_CHANGES_INDEX, 0);
 };
 
 /**
