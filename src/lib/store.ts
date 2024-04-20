@@ -6,6 +6,11 @@ import {wrap} from './util';
 import {ChangeType} from '@/types/system';
 import {createSystemChange} from './system';
 
+/**
+ * An implementation of a SparseSet which also stores a component.
+ *
+ * Stores only one component per entity id.
+ */
 export class SparseComponentStore<T>
   implements Updateable<SparseComponentStore<T>, T>, ComponentStore<T>
 {
@@ -29,19 +34,38 @@ export class SparseComponentStore<T>
     this.components = components;
   }
 
+  /**
+   * Return the number of components stored inside this store.
+   */
   length(): number {
     return this.n;
   }
 
-  private indexOf(id: number) {
+  private indexOf(id: number): number {
     return this.sparse[id];
   }
 
+  /**
+   * Returns true iff the entity with the suplied id exists within the set.
+   *
+   * @param id - The id of the entity to check for set membership.
+   */
   hasEntity(id: number): boolean {
     if (id > this.maxID) return false;
     return id === this.dense[this.sparse[id]];
   }
 
+  /**
+   * Inserts a component for a given entity.
+   *
+   * @param id - The id of an entity
+   * @param component - The component to insert
+   * @returns the Store, for use in chaining.
+   *
+   * @example
+   * const store = new SparseComponentStore()
+   * store.insert(1, "hello")
+   */
   insert(id: number, component: T): SparseComponentStore<T> {
     if (this.hasEntity(id)) {
       this.components[this.indexOf(id)] = component;
@@ -55,19 +79,36 @@ export class SparseComponentStore<T>
     return this;
   }
 
+  /**
+   * Returns the component associated with the Entity id, if stored.
+   *
+   * @param id - The id of an entity
+   */
   getComponent(id: number): T | undefined {
     return this.components[this.indexOf(id)];
   }
 
+  /**
+   * Returns all stored components.
+   */
   getComponents(): T[] {
     return take(this.n, this.components);
   }
 
+  /**
+   * Returns a zipped list of <id, component> tuples
+   */
   getItems(): [number, T][] {
     const n = take(this.n);
     return zip(n(this.dense), n(this.components));
   }
 
+  /**
+   * Removes the component associated with the supplied entity id,
+   * if it exists.
+   *
+   * @param id - The id of an entity to remove.
+   */
   remove(id: number): SparseComponentStore<T> {
     if (!this.hasEntity(id)) return this;
     if (this.n === 1) {
@@ -133,7 +174,7 @@ export class SparseComponentStore<T>
     return this;
   }
 
-  // TODO: The typing here is gross but has to be done to
+  // NOTE: The typing here is gross but has to be done to
   // satisfy the interface. Makes me wonder...
   add<U extends T>(
     path: string[],
