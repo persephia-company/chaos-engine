@@ -3,18 +3,6 @@ import {Entity} from './entity';
 import ComponentStore from './store';
 import {System} from './system';
 
-export const ReservedStages = {
-  START_UP: 'start-up',
-  PRE_STEP: 'pre-step',
-  PRE_STAGE: 'pre-stage',
-  UPDATE: 'update',
-  PRE_BATCH: 'pre-batch',
-  POST_BATCH: 'post-batch',
-  POST_STAGE: 'post-stage',
-  POST_STEP: 'post-step',
-  TEAR_DOWN: 'tear-down',
-} as const;
-
 export type WorldStore = {
   components: Record<string, ComponentStore<unknown>>;
   events: Record<string, unknown[]>;

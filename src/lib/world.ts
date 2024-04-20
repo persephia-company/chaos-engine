@@ -2,7 +2,7 @@ import {Entity} from '@/types/entity';
 import {ComponentStore} from '@/types/store';
 import {System, SystemChange} from '@/types/system';
 import {Updateable} from '@/types/updateable';
-import {ReservedStages, WorldAPI, WorldStore} from '@/types/world';
+import {WorldAPI, WorldStore} from '@/types/world';
 import {Queue} from '@datastructures-js/queue';
 import {DepGraph} from 'dependency-graph';
 import stringify from 'json-stable-stringify';
@@ -18,6 +18,10 @@ import {
   wrap,
 } from './util';
 
+export const COMPONENTS = 'components';
+export const RESOURCES = 'resources';
+export const EVENTS = 'events';
+
 export const ReservedKeys = {
   STAGE: 'stage',
   GAME_SHOULD_QUIT: 'game-should-quit',
@@ -30,6 +34,18 @@ export const ReservedKeys = {
   RAW_CHANGES: 'raw-changes',
   MAX_ENTITY: 'max-entity',
   ENTITY_REVIVAL_QUEUE: 'entity-revival-queue',
+} as const;
+
+export const ReservedStages = {
+  START_UP: 'start-up',
+  PRE_STEP: 'pre-step',
+  PRE_STAGE: 'pre-stage',
+  UPDATE: 'update',
+  PRE_BATCH: 'pre-batch',
+  POST_BATCH: 'post-batch',
+  POST_STAGE: 'post-stage',
+  POST_STEP: 'post-step',
+  TEAR_DOWN: 'tear-down',
 } as const;
 
 export class World implements WorldStore, WorldAPI<World>, Updateable<World> {

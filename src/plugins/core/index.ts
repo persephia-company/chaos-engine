@@ -1,6 +1,6 @@
 import {SystemResults} from '@/lib/system';
 import {World} from '@/lib/world';
-import {ReservedStages} from '@/types/world';
+import {ReservedStages} from '@/lib/world';
 import {reviveIDs, updateMaxID} from './ids';
 import {addChangeEvents} from './changes';
 import {System} from '@/types/system';

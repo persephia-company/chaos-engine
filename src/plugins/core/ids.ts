@@ -14,15 +14,16 @@ export const reviveIDs: System = world => {
   if (!deletions.length) return;
 
   const deadIDs = deletions.flatMap(change => wrap(change.ids));
-  return new SystemResults()
-    .add(['resources', ReservedKeys.ENTITY_REVIVAL_QUEUE], new Set())
-    .update(
-      ['resources', ReservedKeys.ENTITY_REVIVAL_QUEUE],
-      (q: Set<Entity>) => {
+  const queuePath = ['resources', ReservedKeys.ENTITY_REVIVAL_QUEUE];
+  return (
+    new SystemResults()
+      // Add a new resource if one doesn't already exist
+      .add(queuePath, new Set())
+      .update(queuePath, (q: Set<Entity>) => {
         deadIDs.forEach(id => q.add(id));
         return q;
-      }
-    );
+      })
+  );
 };
 
 /**

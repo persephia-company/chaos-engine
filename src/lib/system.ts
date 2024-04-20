@@ -9,6 +9,7 @@ import {
 import * as R from 'ramda';
 import {Updateable} from '@/types/updateable';
 import {World} from '@/lib/world';
+import {COMPONENTS} from '..';
 
 /**
  * Returns the unique identifier used for changeEvents of a specific key and method.
@@ -99,6 +100,15 @@ export class SystemResults implements Updateable<SystemResults> {
       createChange(component, value)
     );
     return this.addChanges(changes);
+  }
+
+  // Helper methods
+  addComponent<T>(
+    componentName: string,
+    values: T | T[],
+    ids?: number | number[]
+  ) {
+    const path = [COMPONENTS, componentName];
   }
 }
 

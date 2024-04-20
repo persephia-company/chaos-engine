@@ -1,7 +1,7 @@
-import {World, ReservedStages} from '@/lib/world';
+import {World} from '@/lib/world';
 import {describe, expect, test} from 'vitest';
 import {SystemResults, Plugins, System} from '../..';
-import {debugPlugin} from '.';
+import {ReservedStages} from '@/lib/world';
 
 const createWorld = () => {
   return new World().addPlugin(Plugins.corePlugin);
@@ -11,15 +11,15 @@ const satisfiesInvariant = (world: World) => {
   return world instanceof World;
 };
 
-describe('Core plugins', () => {
+describe('Test id related plugins', () => {
   test('Can run startup stage', () => {
     let count1 = 0;
     let count2 = 0;
     let rightOrder = false;
+    let component = 'X';
 
     const sys1: System = () => {
       count1 += 1;
-      return new SystemResults();
     };
     const sys2: System = () => {
       count2 += 1;
