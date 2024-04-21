@@ -6,10 +6,11 @@ import {
 } from '@/lib/system';
 import {logger} from '@/lib/logger';
 import {first, second, wrap} from '@/lib/util';
-import {COMPONENTS, EVENTS, ReservedKeys} from '@/lib/world';
+import {COMPONENTS, EVENTS, RESOURCES, ReservedKeys} from '@/lib/world';
 import {ChangeType, System, SystemChange} from '@/types/system';
 import {hasPath, zip} from 'ramda';
 import {Entity} from '@/types/entity';
+import {DataType} from '@/types/world';
 
 const createChangeEvent = (
   rawChange: SystemChange<any>
@@ -140,40 +141,83 @@ export const addCreatedEvents: System = world => {
 
   if (!rawChanges.length) return;
 
-  const generateCreatedChanges = (
-    rawChange: SystemChange
-  ): SystemChange | undefined => {
-    const {method, path} = rawChange;
-    if (method !== 'set' && method !== 'add') {
-      return;
-    }
-
-    const values = wrap(rawChange.value);
-    const ids = wrap(rawChange.ids);
-
-    if (path[0] === 'components') {
-      const component = path[1];
-      const created = zip(ids, values).filter(([id, _]) =>
-        world.getComponentStore(component as string).hasEntity(id)
-      );
-      const createdIDs = created.map(first) as number[];
-      const createdValues = created.map(second);
-
-      return {...rawChange, value: createdValues, ids: createdIDs};
-    }
-
-    // TODO: This isn't exactly right but should be good enough for now.
-    // NOTE: Maybe this should only generate events for components
-    if (!hasPath(path as string[], world)) {
-      return rawChange;
-    }
-
-    return;
+  const couldCreateSomething = (change: SystemChange<unknown>): boolean => {
+    return change.method == 'set' || change.method == 'add';
   };
 
-  const changes = rawChanges
-    .map(generateCreatedChanges)
-    .filter(change => change !== undefined) as SystemChange[];
+  const isDatatype = (type: DataType, change: SystemChange<unknown>) => {
+    return change.path[0] === type;
+  };
+
+  const hasUniqueComponentChanges = (
+    change: SystemChange<unknown>
+  ): boolean => {
+    const values = wrap(change.value);
+    const ids = wrap(change.ids);
+
+    const component = change.path[1];
+
+    const created = zip(ids, values).filter(
+      ([id, _]) => !world.getComponentStore(component as string).hasEntity(id)
+    );
+
+    // BUG: This is empty when it shouldn't be
+    logger.debug({msg: 'HOIYAH', created});
+
+    return created.length > 0;
+  };
+
+  const extractUniqueComponentChanges = (
+    change: SystemChange<unknown>
+  ): SystemChange<unknown> => {
+    const values = wrap(change.value);
+    const ids = wrap(change.ids);
+
+    const component = change.path[1];
+
+    const created = zip(ids, values).filter(
+      ([id, _]) => !world.getComponentStore(component as string).hasEntity(id)
+    );
+
+    const createdIDs = created.map(first) as number[];
+    const createdValues = created.map(second) as unknown[];
+
+    return {...change, value: createdValues, ids: createdIDs};
+  };
+
+  const hadSpecifiedResource = (change: SystemChange<unknown>): boolean => {
+    const resource = change.path[1];
+
+    // TODO: How to handle when resource is null on purpose?
+    return world.getResourceOr(null, resource) !== null;
+  };
+
+  const isCreatingEvents = (change: SystemChange<unknown>): boolean => {
+    return change.method === 'add';
+  };
+
+  const modifyChange = (change: SystemChange<unknown>) => {
+    if (isDatatype(COMPONENTS, change)) {
+      return extractUniqueComponentChanges(change);
+    }
+    return change;
+  };
+
+  // NOTE: Make sure each change passes the requirements for uniqueness.
+  const creatingChanges = rawChanges
+    .filter(change => !isChangeEvent(change))
+    .filter(couldCreateSomething)
+    .filter(
+      change =>
+        !isDatatype(COMPONENTS, change) || hasUniqueComponentChanges(change)
+    )
+    .filter(change => !isDatatype(EVENTS, change) || isCreatingEvents(change))
+    .filter(
+      change => !isDatatype(RESOURCES, change) || !hadSpecifiedResource(change)
+    )
+    .map(modifyChange);
+
+  if (creatingChanges.length === 0) return;
 
   const buildCreatedEvent = (change: SystemChange<unknown>) => {
     const key = change.path[1];
@@ -184,7 +228,34 @@ export const addCreatedEvents: System = world => {
     );
   };
 
-  return new SystemResults(changes.map(buildCreatedEvent));
+  return new SystemResults(creatingChanges.map(buildCreatedEvent));
 };
 
-// TODO: add modified events as well
+export const addModifiedEvents: System = world => {
+  const rawChanges = world.getEvents<SystemChange<unknown>>(
+    ReservedKeys.RAW_CHANGES
+  );
+
+  if (!rawChanges.length) return;
+
+  const wouldModify = (change: SystemChange<unknown>) => {
+    return change.method !== 'delete';
+  };
+
+  const modifyingChanges = rawChanges
+    .filter(wouldModify)
+    .filter(change => !isChangeEvent(change));
+
+  if (modifyingChanges.length === 0) return;
+
+  const buildModifiedEvent = (change: SystemChange<unknown>) => {
+    const key = change.path[1];
+    return createSystemChange(
+      'add',
+      ['events', changeEventName('modified', key as string)],
+      change
+    );
+  };
+
+  return new SystemResults(modifyingChanges.map(buildModifiedEvent));
+};

@@ -33,4 +33,4 @@ export interface WorldAPI<A> {
   play: () => A;
 }
 
-export type DataType = 'component' | 'event' | 'resource';
+export type DataType = 'components' | 'events' | 'resources';

@@ -4,6 +4,8 @@ import {ReservedStages} from '@/lib/world';
 import {reviveEntities, sendDeadEntitiesToPurgatory, updateMaxID} from './ids';
 import {
   addChangeEvents,
+  addCreatedEvents,
+  addModifiedEvents,
   entityDeletionCleanup,
   executeEntities,
   resetRawChangesIndex,
@@ -17,26 +19,36 @@ import {logger} from '@/lib/logger';
  */
 export const corePlugin = (world: World): World => {
   // logger.info('Adding core plugins');
-  return world
-    .addSystem(resetRawChangesIndex, ReservedStages.PRE_STEP)
-    .addSystem(resetEvents, ReservedStages.PRE_STEP)
+  return (
+    world
+      .addSystem(resetRawChangesIndex, ReservedStages.PRE_STEP)
+      .addSystem(resetEvents, ReservedStages.PRE_STEP)
 
-    .addSystem(addChangeEvents, ReservedStages.POST_BATCH)
+      // System changes
+      .addSystem(addChangeEvents, ReservedStages.POST_BATCH)
 
-    .addSystem(sendDeadEntitiesToPurgatory, ReservedStages.POST_BATCH)
-    .addSystemDependency(sendDeadEntitiesToPurgatory, addChangeEvents)
+      .addSystem(addCreatedEvents, ReservedStages.POST_BATCH)
+      .addSystemDependency(addCreatedEvents, addChangeEvents)
 
-    .addSystem(reviveEntities, ReservedStages.POST_BATCH)
-    .addSystemDependency(reviveEntities, addChangeEvents)
+      .addSystem(addModifiedEvents, ReservedStages.POST_BATCH)
+      .addSystemDependency(addModifiedEvents, addChangeEvents)
 
-    .addSystem(updateMaxID, ReservedStages.POST_BATCH)
-    .addSystemDependency(updateMaxID, addChangeEvents)
+      // Entity recycling systems
+      .addSystem(sendDeadEntitiesToPurgatory, ReservedStages.POST_BATCH)
+      .addSystemDependency(sendDeadEntitiesToPurgatory, addChangeEvents)
 
-    .addSystem(entityDeletionCleanup, ReservedStages.POST_BATCH)
-    .addSystemDependency(entityDeletionCleanup, addChangeEvents)
+      .addSystem(reviveEntities, ReservedStages.POST_BATCH)
+      .addSystemDependency(reviveEntities, addChangeEvents)
 
-    .addSystem(executeEntities, ReservedStages.POST_BATCH)
-    .addSystemDependency(executeEntities, entityDeletionCleanup);
+      .addSystem(updateMaxID, ReservedStages.POST_BATCH)
+      .addSystemDependency(updateMaxID, addChangeEvents)
+
+      .addSystem(entityDeletionCleanup, ReservedStages.POST_BATCH)
+      .addSystemDependency(entityDeletionCleanup, addChangeEvents)
+
+      .addSystem(executeEntities, ReservedStages.POST_BATCH)
+      .addSystemDependency(executeEntities, entityDeletionCleanup)
+  );
 };
 
 /**
