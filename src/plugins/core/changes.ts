@@ -142,7 +142,7 @@ export const addCreatedEvents: System = world => {
   if (!rawChanges.length) return;
 
   const couldCreateSomething = (change: SystemChange<unknown>): boolean => {
-    return change.method == 'set' || change.method == 'add';
+    return change.method === 'set' || change.method === 'add';
   };
 
   const isDatatype = (type: DataType, change: SystemChange<unknown>) => {
@@ -157,16 +157,18 @@ export const addCreatedEvents: System = world => {
 
     const component = change.path[1];
 
+    // BUG: This doesn't work because by now the component has already been added.
+    // Could maybe fix by not applying system results as soon as they come in.
     const created = zip(ids, values).filter(
       ([id, _]) => !world.getComponentStore(component as string).hasEntity(id)
     );
 
-    // BUG: This is empty when it shouldn't be
-    logger.debug({msg: 'HOIYAH', created});
-
-    return created.length > 0;
+    // TODO: Just hardcoding for now
+    // return created.length > 0;
+    return true;
   };
 
+  // BUG: See above
   const extractUniqueComponentChanges = (
     change: SystemChange<unknown>
   ): SystemChange<unknown> => {
@@ -197,9 +199,10 @@ export const addCreatedEvents: System = world => {
   };
 
   const modifyChange = (change: SystemChange<unknown>) => {
-    if (isDatatype(COMPONENTS, change)) {
-      return extractUniqueComponentChanges(change);
-    }
+    // TODO: Uncomment when above bugs are resolved
+    // if (isDatatype(COMPONENTS, change)) {
+    //   return extractUniqueComponentChanges(change);
+    // }
     return change;
   };
 
