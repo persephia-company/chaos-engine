@@ -5,6 +5,7 @@ import {take, zip} from 'ramda';
 import {wrap} from './util';
 import {ChangeType} from '@/types/system';
 import {createSystemChange} from './system';
+import {logger} from './logger';
 
 /**
  * An implementation of a SparseSet which also stores a component.
@@ -135,7 +136,10 @@ export class SparseComponentStore<T>
     method: ChangeType,
     message: string
   ): SparseComponentStore<T> {
-    console.error(`${method.toUpperCase()} failed: ${message}`);
+    logger.error({
+      msg: `Store ${method.toUpperCase()} failed`,
+      reason: message,
+    });
     return this;
   }
 

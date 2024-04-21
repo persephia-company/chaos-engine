@@ -36,6 +36,7 @@ export const ReservedKeys = {
   RAW_CHANGES: 'raw-changes',
   MAX_ID: 'max-id',
   ENTITY_REVIVAL_STACK: 'entity-revival-stack',
+  ENTITY_DEATHS_DOORS: 'entity-deaths-door',
   RAW_CHANGES_INDEX: 'raw-changes-index',
 } as const;
 
@@ -101,6 +102,15 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       }
     }
     return this;
+  }
+
+  /**
+   * Gets the name of all components the supplied entity is a part of.
+   */
+  getComponentsForEntity(id: Entity): string[] {
+    return Object.entries(this.components)
+      .filter(([_, store]) => store.hasEntity(id))
+      .map(([name, _]) => name);
   }
 
   setResource = <T>(key: string, value: T) => {
@@ -384,11 +394,17 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     return result;
   };
 
+  /**
+   * Applies a set of changes contained in some SystemResults, one by one, to
+   * the world.
+   */
   applySystemResults = (results: SystemResults): World => {
+    // NOTE: We could eventually make it so that all this does is add the raw results to the event queue.
+    // Then all the remaining behaviour could be accomplished with systems...
     logger.debug({msg: 'Apply System Results', results});
+
     const applyChange = (world: World, change: SystemChange<any>): World => {
-      // TODO: move this into individual api calls
-      // Emit raw changes events for future plugins
+      // NOTE: Wrap with ids before we add the RAW event.
       if (
         change.method === 'add' &&
         change.path[0] === COMPONENTS &&
@@ -400,11 +416,6 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
         .add([EVENTS, ReservedKeys.RAW_CHANGES], change)
         .applySystemChange(change);
     };
-    // let world: World = this;
-    // for (const change of results.changes) {
-    //   world = applyChange(world, change);
-    // }
-    // return world;
     return R.reduce(applyChange, this, results.changes);
   };
 
@@ -480,12 +491,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   forwardToComponents<T>(change: SystemChange<T>): World {
     const {method, path, value} = change;
 
-    // Add ids
     const ids = wrap(change.ids);
-    let idStore = this.getComponentStore<Entity>(ReservedKeys.ID);
-    for (const id of ids) {
-      idStore = idStore.insert(id, id);
-    }
 
     logger.debug({msg: 'forwarding to components', change, ids});
 
@@ -495,11 +501,21 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     let store = this.getComponentStore(component);
     store = store[method](remainingPath, value as any, ids);
 
+    const result = this.setComponentStore(component, store);
+
+    // If we're directly modifying ids, we're done.
+    if (component === ReservedKeys.ID) return result;
+
+    // Otherwise, might need to also create the appropriate ids
+    let idStore = this.getComponentStore<Entity>(ReservedKeys.ID);
+    if (method === 'add' || method === 'set') {
+      for (const id of ids) {
+        idStore = idStore.insert(id, id);
+      }
+    }
+
     // Update our worlds stores to reflect our changes
-    return this.setComponentStore(component, store).setComponentStore(
-      ReservedKeys.ID,
-      idStore
-    );
+    return result.setComponentStore(ReservedKeys.ID, idStore);
   }
 
   add<T>(path: string[], values: T | T[], ids?: number | number[]): World {
@@ -523,6 +539,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       const event = path[1];
       let events = this.getEvents(event);
       events = events.concat(wrap(values));
+      // TODO: Could just make imperative
       objAssoc(['events', event], events, this);
       return this;
     }
@@ -558,10 +575,11 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     }
 
     // Must be components
+    // NOTE: Pulled into plugin changes.executeEntities
     // Special case where we delete the entity
-    if (path[1] === ReservedKeys.ID) {
-      return this.deleteEntities(wrap(ids));
-    }
+    // if (path[1] === ReservedKeys.ID) {
+    //   return this.deleteEntities(wrap(ids));
+    // }
 
     return this.forwardToComponents(
       createSystemChange('delete', path, values, ids) as SystemChange<unknown>

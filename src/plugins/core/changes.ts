@@ -9,6 +9,7 @@ import {first, second, wrap} from '@/lib/util';
 import {COMPONENTS, EVENTS, ReservedKeys} from '@/lib/world';
 import {ChangeType, System, SystemChange} from '@/types/system';
 import {hasPath, zip} from 'ramda';
+import {Entity} from '@/types/entity';
 
 const createChangeEvent = (
   rawChange: SystemChange<any>
@@ -45,9 +46,19 @@ export const addChangeEvents: System = world => {
   // NOTE: Only add events we haven't already processed so far.
   rawChanges = rawChanges.slice(rawIndex);
 
-  const isModifyingId = (rawChange: SystemChange<unknown>): boolean => {
-    const key = rawChange.path[1];
-    return wrap(rawChange.ids).length > 0 && key !== ReservedKeys.ID;
+  const indirectlyCreatesID = (rawChange: SystemChange<unknown>): boolean => {
+    if (rawChange.path[0] !== COMPONENTS) return false;
+
+    const component = rawChange.path[1];
+    if (component === ReservedKeys.ID) {
+      return false;
+    }
+
+    if (!['add', 'set'].includes(rawChange.method)) {
+      return false;
+    }
+
+    return wrap(rawChange.ids).length > 0;
   };
 
   const nonChangeEvents = rawChanges.filter(change => !isChangeEvent(change));
@@ -57,7 +68,7 @@ export const addChangeEvents: System = world => {
 
   // NOTE: Every change with an id is implicitly also a change event for ids
   const idChanges = nonChangeEvents
-    .filter(isModifyingId)
+    .filter(indirectlyCreatesID)
     .map(change => createIDChange(change.method, wrap(change.ids)))
     .map(change => createChangeEvent(change));
 
@@ -67,14 +78,59 @@ export const addChangeEvents: System = world => {
     .setResource(ReservedKeys.RAW_CHANGES_INDEX, eventCount);
 };
 
-export const resetRawChangesIndex: System = world => {
+export const entityDeletionCleanup: System = world => {
+  const deletionEvents = world.getEvents<SystemChange<Entity>>(
+    changeEventName('delete', ReservedKeys.ID)
+  );
+  const ids = deletionEvents.flatMap(changeEvent => wrap(changeEvent.ids));
+  if (ids.length === 0) return;
+
+  return new SystemResults().addEvents(
+    ReservedKeys.ENTITY_DEATHS_DOORS,
+    ids,
+    ids
+  );
+};
+
+export const executeEntities: System = world => {
+  const toDie = world.getEvents<Entity>(ReservedKeys.ENTITY_DEATHS_DOORS);
+  if (toDie.length === 0) return;
+
+  let results = new SystemResults();
+  for (const id of toDie) {
+    const components = world.getComponentsForEntity(id);
+    for (const component of components) {
+      if (component !== ReservedKeys.ID) {
+        results = results.deleteComponents(component, [], id);
+      }
+    }
+  }
+  const changes = toDie.flatMap(id =>
+    world
+      .getComponentsForEntity(id)
+      .filter(name => name !== ReservedKeys.ID)
+      .map(name =>
+        createSystemChange<unknown>('delete', [COMPONENTS, name], [], id)
+      )
+  );
+  logger.debug({msg: 'TO DIE', toDie, changes, results});
+  return new SystemResults(changes).setEvents(
+    ReservedKeys.ENTITY_DEATHS_DOORS,
+    []
+  );
+};
+
+/**
+ * Reset the raw change index to 0
+ */
+export const resetRawChangesIndex: System = () => {
   return new SystemResults().setResource(ReservedKeys.RAW_CHANGES_INDEX, 0);
 };
 
 /**
  * Checks for when data has been created for the first time.
  *
- * e.g. enables a user to listen to the "created:player" event from other systems.
+ * e.g. enables a user to listen to the "created-->player" event from other systems.
  * @see changeEventName for a useful utility here.
  */
 export const addCreatedEvents: System = world => {

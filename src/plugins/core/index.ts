@@ -2,7 +2,12 @@ import {SystemResults} from '@/lib/system';
 import {World} from '@/lib/world';
 import {ReservedStages} from '@/lib/world';
 import {reviveEntities, sendDeadEntitiesToPurgatory, updateMaxID} from './ids';
-import {addChangeEvents, resetRawChangesIndex} from './changes';
+import {
+  addChangeEvents,
+  entityDeletionCleanup,
+  executeEntities,
+  resetRawChangesIndex,
+} from './changes';
 import {System} from '@/types/system';
 import {logStage} from './debug';
 import {logger} from '@/lib/logger';
@@ -25,7 +30,13 @@ export const corePlugin = (world: World): World => {
     .addSystemDependency(reviveEntities, addChangeEvents)
 
     .addSystem(updateMaxID, ReservedStages.POST_BATCH)
-    .addSystemDependency(updateMaxID, addChangeEvents);
+    .addSystemDependency(updateMaxID, addChangeEvents)
+
+    .addSystem(entityDeletionCleanup, ReservedStages.POST_BATCH)
+    .addSystemDependency(entityDeletionCleanup, addChangeEvents)
+
+    .addSystem(executeEntities, ReservedStages.POST_BATCH)
+    .addSystemDependency(executeEntities, entityDeletionCleanup);
 };
 
 /**
