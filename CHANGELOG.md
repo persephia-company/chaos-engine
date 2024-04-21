@@ -1,5 +1,11 @@
 # @persephia/chaos-engine
 
+## 0.0.11
+
+### Patch Changes
+
+- 555ff6b: Fix many issues related to ids and generated change events.
+
 ## 0.0.10
 
 ### Patch Changes
