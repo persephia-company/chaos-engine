@@ -14,7 +14,8 @@ export const corePlugin = (world: World): World => {
   // logger.info('Adding core plugins');
   return world
     .addSystem(resetRawChangesIndex, ReservedStages.PRE_STEP)
-    .addSystem(resetEvents, ReservedStages.POST_STEP)
+    .addSystem(resetEvents, ReservedStages.PRE_STEP)
+
     .addSystem(addChangeEvents, ReservedStages.POST_BATCH)
 
     .addSystem(sendDeadEntitiesToPurgatory, ReservedStages.POST_BATCH)
