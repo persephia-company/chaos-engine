@@ -4,6 +4,7 @@ import {
   createSystemChange,
   isChangeEvent,
 } from '@/lib/system';
+import {logger} from '@/lib/logger';
 import {first, second, wrap} from '@/lib/util';
 import {COMPONENTS, EVENTS, ReservedKeys} from '@/lib/world';
 import {ChangeType, System, SystemChange} from '@/types/system';
@@ -49,17 +50,16 @@ export const addChangeEvents: System = world => {
     return wrap(rawChange.ids).length > 0 && key !== ReservedKeys.ID;
   };
 
+  const nonChangeEvents = rawChanges.filter(change => !isChangeEvent(change));
+
   // NOTE: Only make events for changes that arent already changeEvents
-  const changeEvents = rawChanges
-    .filter(change => !isChangeEvent(change))
-    .map(createChangeEvent);
+  const changeEvents = nonChangeEvents.map(change => createChangeEvent(change));
 
   // NOTE: Every change with an id is implicitly also a change event for ids
-  const idChanges = rawChanges
+  const idChanges = nonChangeEvents
     .filter(isModifyingId)
-    .filter(change => !isChangeEvent(change))
     .map(change => createIDChange(change.method, wrap(change.ids)))
-    .map(createChangeEvent);
+    .map(change => createChangeEvent(change));
 
   return new SystemResults()
     .addChanges(idChanges)

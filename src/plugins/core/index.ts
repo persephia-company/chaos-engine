@@ -1,7 +1,7 @@
 import {SystemResults} from '@/lib/system';
 import {World} from '@/lib/world';
 import {ReservedStages} from '@/lib/world';
-import {reviveIDs, updateMaxID} from './ids';
+import {reviveEntities, sendDeadEntitiesToPurgatory, updateMaxID} from './ids';
 import {addChangeEvents, resetRawChangesIndex} from './changes';
 import {System} from '@/types/system';
 import {logStage} from './debug';
@@ -16,8 +16,13 @@ export const corePlugin = (world: World): World => {
     .addSystem(resetRawChangesIndex, ReservedStages.PRE_STEP)
     .addSystem(resetEvents, ReservedStages.POST_STEP)
     .addSystem(addChangeEvents, ReservedStages.POST_BATCH)
-    .addSystem(reviveIDs, ReservedStages.POST_BATCH)
-    .addSystemDependency(reviveIDs, addChangeEvents)
+
+    .addSystem(sendDeadEntitiesToPurgatory, ReservedStages.POST_BATCH)
+    .addSystemDependency(sendDeadEntitiesToPurgatory, addChangeEvents)
+
+    .addSystem(reviveEntities, ReservedStages.POST_BATCH)
+    .addSystemDependency(reviveEntities, addChangeEvents)
+
     .addSystem(updateMaxID, ReservedStages.POST_BATCH)
     .addSystemDependency(updateMaxID, addChangeEvents);
 };

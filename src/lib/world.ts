@@ -35,7 +35,7 @@ export const ReservedKeys = {
   STAGE_DEPENDENCIES: 'stage-dependencies',
   RAW_CHANGES: 'raw-changes',
   MAX_ID: 'max-id',
-  ENTITY_REVIVAL_QUEUE: 'entity-revival-queue',
+  ENTITY_REVIVAL_STACK: 'entity-revival-stack',
   RAW_CHANGES_INDEX: 'raw-changes-index',
 } as const;
 
@@ -74,12 +74,14 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   }
 
   createEntities(n: number): Entity[] {
-    const revivalQueue: Set<Entity> = this.getResourceOr(
+    const revivalStack: Set<Entity> = this.getResourceOr(
       new Set(),
-      ReservedKeys.ENTITY_REVIVAL_QUEUE
+      ReservedKeys.ENTITY_REVIVAL_STACK
     );
     const maxEntity: Entity = this.getResourceOr(-1, ReservedKeys.MAX_ID);
-    const toRevive = R.take(n, Array.from(revivalQueue));
+    // Pull first from revival stack
+    //
+    const toRevive = R.take(n, Array.from(revivalStack));
     const toCreate = R.times(i => maxEntity + 1 + i, n - toRevive.length);
 
     return toRevive.concat(toCreate);
@@ -387,7 +389,11 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     const applyChange = (world: World, change: SystemChange<any>): World => {
       // TODO: move this into individual api calls
       // Emit raw changes events for future plugins
-      if (change.method === 'add' && !wrap(change.ids).length) {
+      if (
+        change.method === 'add' &&
+        change.path[0] === COMPONENTS &&
+        !wrap(change.ids).length
+      ) {
         change.ids = world.createEntities(wrap(change.value).length);
       }
       return world
@@ -499,7 +505,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   add<T>(path: string[], values: T | T[], ids?: number | number[]): World {
     if (path[0] === 'components') {
       // Add Entity IDs if not specified.
-      if (!wrap(ids).length) {
+      if (wrap(ids).length === 0) {
         ids = this.createEntities(wrap(values).length);
         logger.debug({
           msg: 'No ids found for World.add, adding our own...',

@@ -1,33 +1,67 @@
 import {logger} from '@/lib/logger';
 import {SystemResults, changeEventName} from '@/lib/system';
 import {wrap} from '@/lib/util';
-import {RESOURCES, ReservedKeys} from '@/lib/world';
+import {ReservedKeys, World} from '@/lib/world';
 import {Entity} from '@/types/entity';
 import {System, SystemChange} from '@/types/system';
 
 /**
  * Adds deleted entities to the revival queue to reclaim their id later.
  */
-export const reviveIDs: System = world => {
+export const sendDeadEntitiesToPurgatory: System = world => {
   const deletions = world.getEvents<SystemChange<Entity>>(
     changeEventName('delete', ReservedKeys.ID)
   );
   if (!deletions.length) return;
 
   const deadIDs = deletions.flatMap(change => wrap(change.ids));
-  logger.info({msg: 'Dead IDs', deadIDs});
-  const queuePath = [RESOURCES, ReservedKeys.ENTITY_REVIVAL_QUEUE];
 
-  // TODO: This isn't working, looks like the next ids ignore the queue and pull from MAX_ID
+  const stack = world.getResource<Set<Entity>>(
+    ReservedKeys.ENTITY_REVIVAL_STACK
+  );
+  if (stack === undefined) {
+    return new SystemResults().addResource(
+      ReservedKeys.ENTITY_REVIVAL_STACK,
+      new Set(deadIDs)
+    );
+  }
 
-  return (
-    new SystemResults()
-      // Add a new resource if one doesn't already exist
-      .add(queuePath, new Set())
-      .update(queuePath, (q: Set<Entity>) => {
-        deadIDs.forEach(id => q.add(id));
-        return q;
-      })
+  return new SystemResults().updateResource(
+    ReservedKeys.ENTITY_REVIVAL_STACK,
+    (stack: Set<Entity>) => {
+      deadIDs.forEach(id => stack.add(id));
+      return stack;
+    }
+  );
+};
+
+const getCreatedIds = (world: World) => {
+  const addChanges = world.getEvents<SystemChange<Entity>>(
+    changeEventName('add', 'id')
+  );
+  const setChanges = world.getEvents<SystemChange<Entity>>(
+    changeEventName('set', 'id')
+  );
+  const changes = addChanges.concat(setChanges);
+  return changes.flatMap(change => wrap(change.value) as Entity[]);
+};
+
+/**
+ * Keep track of entites who are created from the revival queue, and remove
+ * them from the queue.
+ */
+export const reviveEntities: System = world => {
+  const ids = getCreatedIds(world);
+  if (ids.length === 0) return;
+  if (world.getResource(ReservedKeys.ENTITY_REVIVAL_STACK) === undefined)
+    return;
+
+  return new SystemResults().updateResource(
+    ReservedKeys.ENTITY_REVIVAL_STACK,
+    (stack: Set<Entity>) => {
+      ids.forEach(id => stack.delete(id));
+      return stack;
+    }
   );
 };
 
@@ -37,18 +71,10 @@ export const reviveIDs: System = world => {
  * Note: Seems like it should cause gaps, but reviveIDs should handle it.
  */
 export const updateMaxID: System = world => {
-  const addChanges = world.getEvents<SystemChange<Entity>>(
-    changeEventName('add', 'id')
-  );
-  const setChanges = world.getEvents<SystemChange<Entity>>(
-    changeEventName('set', 'id')
-  );
-  const changes = addChanges.concat(setChanges);
-  if (changes.length === 0) return;
+  const ids = getCreatedIds(world);
+  if (ids.length === 0) return;
 
-  const ids = changes.flatMap(change => wrap(change.value) as Entity[]);
   const max = Math.max(...ids);
-
   const currentMax = world.getResourceOr(-1, ReservedKeys.MAX_ID);
 
   logger.debug({

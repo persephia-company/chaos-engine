@@ -27,7 +27,7 @@ describe('New Id checks', () => {
   test('Test create entities immutability', () => {
     let world = createWorld();
 
-    world = world.setResource(ReservedKeys.ENTITY_REVIVAL_QUEUE, []);
+    world = world.setResource(ReservedKeys.ENTITY_REVIVAL_STACK, []);
     expect(world.createEntity()).toBe(0);
     expect(world.createEntities(5)).toEqual(range(0, 5));
     // Repeated to test immutability
@@ -37,7 +37,7 @@ describe('New Id checks', () => {
 
   test('Create entities with non-empty revival queue should draw from revival queue', () => {
     let world = createWorld();
-    world = world.setResource(ReservedKeys.ENTITY_REVIVAL_QUEUE, [10]);
+    world = world.setResource(ReservedKeys.ENTITY_REVIVAL_STACK, [10]);
     world.createEntities(2);
     expect(world.createEntities(2)).toEqual([10, 0]);
     expect(satisfiesInvariant(world)).true;
