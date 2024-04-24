@@ -328,11 +328,9 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     const systems = this.getSystems()[stage];
     if (!systems) return this;
 
-    let world = this as World;
-
     // Update the stage
     // NOTE: not sure if it's best idea to have this call through the api
-    world = world.set<string>(['resources', ReservedKeys.STAGE], stage);
+    let world = this.set<string>(['resources', ReservedKeys.STAGE], stage);
 
     // Check if system dependency graph is up to date
     // Rebuild if needed
@@ -450,7 +448,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     return buildDependencyGraph(stages, dependencies);
   };
 
-  step = async () => {
+  async step(this: this) {
     logger.debug('STEPPING');
 
     // TODO: Cache this
@@ -469,13 +467,13 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       ReservedStages.POST_STEP,
     ];
 
-    let world: World = this;
+    // NOTE: This has broken out of the functional idea
     for (const stage of stages) {
-      world = await this.applyStage(stage);
+      await this.applyStage(stage);
     }
-    logger.debug({msg: 'World post step', world});
-    return world;
-  };
+    logger.debug({msg: 'World post step', world: this});
+    return this;
+  }
 
   isFinished = (): boolean => {
     return this.getResourceOr(false, ReservedKeys.GAME_SHOULD_QUIT);
