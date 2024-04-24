@@ -1,5 +1,11 @@
 # @persephia/chaos-engine
 
+## 0.1.0
+
+### Minor Changes
+
+- 0e6aa79: All systems, as well as step, apply_stage and apply_system have been made asynchronous
+
 ## 0.0.11
 
 ### Patch Changes
