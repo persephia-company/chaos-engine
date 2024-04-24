@@ -1,7 +1,7 @@
-import {SystemResults, createSystemChange, requireEvents} from './system';
-import {describe, it, expect} from 'vitest';
-import {World} from './world';
-import {System} from '@/types/system';
+import { SystemResults, createSystemChange, requireEvents } from './system';
+import { describe, it, expect } from 'vitest';
+import { World } from './world';
+import { System } from '..';
 
 describe('System Changes', () => {
   it('Should package messages', () => {
@@ -42,35 +42,40 @@ describe('System Results', () => {
 
 describe('Required Events Helper', () => {
   it('Result should maintain original name', () => {
-    const system = () => new SystemResults();
+    const system = async () => new SystemResults();
     expect(system.name).toBe('system');
 
     const other = requireEvents(['anything'], system);
     expect(other.name).toBe('system');
   });
-  it('Should curry nicely', () => {
-    let system = () => new SystemResults();
-    const requireTick = requireEvents(['tick']);
+  it('Example works', () => {
 
-    system = requireTick(system);
+
+    let system: System = async () => new SystemResults();
+    const onTick = (system: System) => requireEvents(['tick'], system)
+
+    system = onTick(system);
     expect(1).toBe(1);
   });
 
-  it('Should only trigger when specified', () => {
+  it('Should only trigger when specified', async () => {
     // Just has a non-zero change length to distinguish it
-    let add = (_: World) => new SystemResults().add(['resources', 'x'], 1);
+    let add: System = async (_: World) => new SystemResults().add(['resources', 'x'], 1);
     let world = new World();
 
-    expect(add(world).changes.length).toBe(1);
+    let result = await add(world)
+    expect(result!.changes.length).toBe(1);
 
     add = requireEvents(['tick'], add);
-    expect(add(world).changes.length).toBe(0);
+    result = await add(world)
+    expect(result!.changes.length).toBe(0);
 
     // Add the required event
     world = world.add(['events', 'tick'], 1);
     expect(world.getEvents('tick').length).toBe(1);
 
     // Expect it to trigger
-    expect(add(world).changes.length).toBe(1);
+    result = await add(world)
+    expect(result!.changes.length).toBe(1);
   });
 });

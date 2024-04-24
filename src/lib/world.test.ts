@@ -1,8 +1,8 @@
-import {ReservedKeys, World} from './world';
-import {range} from 'ramda';
-import {describe, expect, test} from 'vitest';
-import {SystemResults, Plugins, System} from '..';
-import {ReservedStages} from '@/lib/world';
+import { ReservedKeys, World } from './world';
+import { range } from 'ramda';
+import { describe, expect, test } from 'vitest';
+import { SystemResults, Plugins, System } from '..';
+import { ReservedStages } from '@/lib/world';
 
 const createWorld = () => {
   return new World().addPlugin(Plugins.corePlugin);
@@ -45,8 +45,8 @@ describe('New Id checks', () => {
 });
 
 describe('System Tests', () => {
-  const sys1 = (world: World) => new SystemResults();
-  const sys2 = (world: World) => new SystemResults();
+  const sys1 = async (world: World) => new SystemResults();
+  const sys2 = async (world: World) => new SystemResults();
 
   test('Can add systems correctly', () => {
     let world = createWorld();
@@ -162,29 +162,25 @@ describe('Running The Game', () => {
     expect(1).toBe(1);
   });
 
-  test('Can run startup stage', () => {
+  test('Can run startup stage', async () => {
     let count1 = 0;
     let count2 = 0;
     let rightOrder = false;
 
-    const sys1: System = () => {
+    const sys1: System = async () => {
       count1 += 1;
       return new SystemResults();
     };
-    const sys2: System = () => {
+    const sys2: System = async () => {
       count2 += 1;
       rightOrder = count1 === 1;
       return new SystemResults();
     };
 
-    const world = new World()
+    const world = await new World()
       .addSystem(sys1, ReservedStages.START_UP)
       .addSystem(sys2, ReservedStages.START_UP)
       .addSystemDependency(sys2, sys1)
-      // .addPlugin(w => {
-      //   console.log(w);
-      //   return w;
-      // })
       .applyStage(ReservedStages.START_UP);
 
     expect(satisfiesInvariant(world)).true;

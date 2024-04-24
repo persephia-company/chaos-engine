@@ -4,13 +4,13 @@ import {
   createSystemChange,
   isChangeEvent,
 } from '@/lib/system';
-import {logger} from '@/lib/logger';
-import {first, second, wrap} from '@/lib/util';
-import {COMPONENTS, EVENTS, RESOURCES, ReservedKeys} from '@/lib/world';
-import {ChangeType, System, SystemChange} from '@/types/system';
-import {hasPath, zip} from 'ramda';
-import {Entity} from '@/types/entity';
-import {DataType} from '@/types/world';
+import { logger } from '@/lib/logger';
+import { first, second, wrap } from '@/lib/util';
+import { COMPONENTS, EVENTS, RESOURCES, ReservedKeys } from '@/lib/world';
+import { ChangeType, System, SystemChange } from '@/types/system';
+import { hasPath, zip } from 'ramda';
+import { Entity } from '@/types/entity';
+import { DataType } from '@/types/world';
 
 const createChangeEvent = (
   rawChange: SystemChange<any>
@@ -38,7 +38,7 @@ const createIDChange = (method: ChangeType, ids: number[]) => {
  * by storing a resource (ReservedKeys.RAW_CHANGES_INDEX) which tracks the index up to
  * which we've already processed.
  */
-export const addChangeEvents: System = world => {
+export const addChangeEvents: System = async world => {
   const rawIndex = world.getResourceOr(0, ReservedKeys.RAW_CHANGES_INDEX);
   let rawChanges = world.getEvents<SystemChange<unknown>>(
     ReservedKeys.RAW_CHANGES
@@ -79,7 +79,7 @@ export const addChangeEvents: System = world => {
     .setResource(ReservedKeys.RAW_CHANGES_INDEX, eventCount);
 };
 
-export const entityDeletionCleanup: System = world => {
+export const entityDeletionCleanup: System = async world => {
   const deletionEvents = world.getEvents<SystemChange<Entity>>(
     changeEventName('delete', ReservedKeys.ID)
   );
@@ -93,7 +93,7 @@ export const entityDeletionCleanup: System = world => {
   );
 };
 
-export const executeEntities: System = world => {
+export const executeEntities: System = async world => {
   const toDie = world.getEvents<Entity>(ReservedKeys.ENTITY_DEATHS_DOORS);
   if (toDie.length === 0) return;
 
@@ -114,7 +114,7 @@ export const executeEntities: System = world => {
         createSystemChange<unknown>('delete', [COMPONENTS, name], [], id)
       )
   );
-  logger.debug({msg: 'TO DIE', toDie, changes, results});
+  logger.debug({ msg: 'TO DIE', toDie, changes, results });
   return new SystemResults(changes).setEvents(
     ReservedKeys.ENTITY_DEATHS_DOORS,
     []
@@ -124,7 +124,7 @@ export const executeEntities: System = world => {
 /**
  * Reset the raw change index to 0
  */
-export const resetRawChangesIndex: System = () => {
+export const resetRawChangesIndex: System = async () => {
   return new SystemResults().setResource(ReservedKeys.RAW_CHANGES_INDEX, 0);
 };
 
@@ -134,7 +134,7 @@ export const resetRawChangesIndex: System = () => {
  * e.g. enables a user to listen to the "created-->player" event from other systems.
  * @see changeEventName for a useful utility here.
  */
-export const addCreatedEvents: System = world => {
+export const addCreatedEvents: System = async world => {
   const rawChanges = world.getEvents<SystemChange<unknown>>(
     ReservedKeys.RAW_CHANGES
   );
@@ -184,7 +184,7 @@ export const addCreatedEvents: System = world => {
     const createdIDs = created.map(first) as number[];
     const createdValues = created.map(second) as unknown[];
 
-    return {...change, value: createdValues, ids: createdIDs};
+    return { ...change, value: createdValues, ids: createdIDs };
   };
 
   const hadSpecifiedResource = (change: SystemChange<unknown>): boolean => {
@@ -234,7 +234,7 @@ export const addCreatedEvents: System = world => {
   return new SystemResults(creatingChanges.map(buildCreatedEvent));
 };
 
-export const addModifiedEvents: System = world => {
+export const addModifiedEvents: System = async world => {
   const rawChanges = world.getEvents<SystemChange<unknown>>(
     ReservedKeys.RAW_CHANGES
   );

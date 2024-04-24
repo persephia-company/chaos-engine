@@ -7,9 +7,8 @@ import {
 } from '@/types/system';
 
 import * as R from 'ramda';
-import {Updateable} from '@/types/updateable';
-import {EVENTS, RESOURCES, World, COMPONENTS} from '@/lib/world';
-import {logger} from './logger';
+import { Updateable } from '@/types/updateable';
+import { EVENTS, RESOURCES, World, COMPONENTS } from '@/lib/world';
 
 export const RESERVED_DIVIDER = '-->';
 
@@ -40,7 +39,7 @@ export const createSystemChange = <T>(
   value?: SystemChange<T>['value'],
   ids?: SystemChange<T>['ids']
 ): SystemChange<T> => {
-  return {method, path, value, ids};
+  return { method, path, value, ids };
 };
 
 export class SystemResults implements Updateable<SystemResults> {
@@ -208,7 +207,7 @@ export const defsys = <C extends any[]>(
   handler: QueryHandler<C>,
   name = 'anonymousSystem'
 ) => {
-  const result = (world: World) => {
+  const result = async (world: World) => {
     const components = request.components
       ? world.query<C>(request.components)
       : [];
@@ -225,7 +224,7 @@ export const defsys = <C extends any[]>(
       return new SystemResults();
     }
 
-    return handler({components, resources, events, options, world});
+    return handler({ components, resources, events, options, world });
   };
   return nameSystem(name, result);
 };
@@ -236,7 +235,7 @@ export const defsys = <C extends any[]>(
  * Useful for when naming is obscured by closures.
  */
 export const nameSystem = (name: string, system: System) => {
-  return Object.defineProperty(system, 'name', {value: name});
+  return Object.defineProperty(system, 'name', { value: name });
 };
 
 /**
@@ -244,10 +243,8 @@ export const nameSystem = (name: string, system: System) => {
  * when the system has events of the supplied names. Otherwise, it returns some
  * empty system results.
  *
- * Curries its arguments for further modularity.
- *
  * @example
- * const onTick = requireEvents(['tick'])
+ * const onTick = (system: System) => requireEvents(['tick'], system)
  *
  * let system = () => {
  *  console.log('hi')
@@ -256,9 +253,9 @@ export const nameSystem = (name: string, system: System) => {
  *
  * system = onTick(system); // now system will only run whenever a 'tick' event is detected
  */
-export const requireEvents = R.curry(
+export const requireEvents =
   (eventNames: string[], system: System): System => {
-    const result = (world: World) => {
+    const result = async (world: World) => {
       if (eventNames.some(name => world.getEvents(name).length > 0)) {
         return system(world);
       }
@@ -267,4 +264,3 @@ export const requireEvents = R.curry(
     // Force the returned system to have the same name as the incoming one.
     return nameSystem(system.name, result);
   }
-);

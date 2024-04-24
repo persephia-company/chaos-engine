@@ -1,6 +1,6 @@
-import {SystemResults, defsys, nameSystem} from '@/lib/system';
-import {first} from '@/lib/util';
-import {range, repeat} from 'ramda';
+import { SystemResults, defsys, nameSystem } from '@/lib/system';
+import { first } from '@/lib/util';
+import { range, repeat } from 'ramda';
 
 export class Timer<T> {
   /** The number of ms required to accumulate before the timer will emit its event */
@@ -32,7 +32,7 @@ export class Timer<T> {
   }
 
   update(updates: Partial<Timer<T>>): Timer<T> {
-    const {ms, lastTime, acc, event, payload, shouldLoop, freeze} = {
+    const { ms, lastTime, acc, event, payload, shouldLoop, freeze } = {
       ...this,
       ...updates,
     };
@@ -49,7 +49,7 @@ export class Timer<T> {
 
   tick() {
     const acc = (this.delta() + this.acc) % this.ms;
-    return this.update({acc, lastTime: Date.now()});
+    return this.update({ acc, lastTime: Date.now() });
   }
 }
 
@@ -58,8 +58,8 @@ export const createTimerSystem = (
   systemName?: string
 ) => {
   const result = defsys<[Timer<unknown>]>(
-    {components: [componentName]},
-    ({components}) => {
+    { components: [componentName] },
+    ({ components }) => {
       const timers = components.map(first) as Timer<unknown>[];
       const poppedTimers = timers.filter(timer => timer.emitCount() > 0);
 
@@ -94,7 +94,7 @@ export const createTimerResourceSystem = (
   resourceName: string,
   systemName?: string
 ) => {
-  const result = defsys({resources: [resourceName]}, ({resources}) => {
+  const result = defsys({ resources: [resourceName] }, ({ resources }) => {
     const timer = resources[resourceName] as Timer<unknown> | undefined;
     if (!timer) return new SystemResults();
 

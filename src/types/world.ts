@@ -1,7 +1,7 @@
-import {SystemResults} from '..';
-import {Entity} from './entity';
+import { SystemResults } from '..';
+import { Entity } from './entity';
 import ComponentStore from './store';
-import {System} from './system';
+import { System } from './system';
 
 export type WorldStore = {
   components: Record<string, ComponentStore<unknown>>;
@@ -25,12 +25,12 @@ export interface WorldAPI<A> {
   addStageDependency: (stage: string, dependency: string) => A;
   addPlugin: (plugin: (world: A) => A) => A;
   query: <T extends any[]>(components: string[]) => T[];
-  applyStage: (stage: string) => A;
-  applySystem: (system: System) => A;
+  applyStage: (stage: string) => Promise<A>;
+  applySystem: (system: System) => Promise<SystemResults | void>;
   applySystemResults: (results: SystemResults) => A;
-  step: () => A;
+  step: () => Promise<A>;
+  play: () => Promise<A>;
   isFinished: () => boolean;
-  play: () => A;
 }
 
 export type DataType = 'components' | 'events' | 'resources';

@@ -1,7 +1,7 @@
-import {SystemResults} from '@/lib/system';
-import {World} from '@/lib/world';
-import {ReservedStages} from '@/lib/world';
-import {reviveEntities, sendDeadEntitiesToPurgatory, updateMaxID} from './ids';
+import { SystemResults } from '@/lib/system';
+import { World } from '@/lib/world';
+import { ReservedStages } from '@/lib/world';
+import { reviveEntities, sendDeadEntitiesToPurgatory, updateMaxID } from './ids';
 import {
   addChangeEvents,
   addCreatedEvents,
@@ -10,9 +10,9 @@ import {
   executeEntities,
   resetRawChangesIndex,
 } from './changes';
-import {System} from '@/types/system';
-import {logStage} from './debug';
-import {logger} from '@/lib/logger';
+import { System } from '@/types/system';
+import { logStage } from './debug';
+import { logger } from '@/lib/logger';
 
 /**
  * Adds essential library plugins to the world. The engine will not function as expected without calling this.
@@ -61,4 +61,4 @@ export const debugPlugin = (world: World): World => {
 /**
  * Deletes all events from the world. Designed to be called at the end of each step.
  */
-const resetEvents: System = () => new SystemResults().set(['events'], {});
+const resetEvents: System = async () => new SystemResults().set(['events'], {});

@@ -1,14 +1,14 @@
-import {logger} from '@/lib/logger';
-import {SystemResults, changeEventName} from '@/lib/system';
-import {wrap} from '@/lib/util';
-import {ReservedKeys, World} from '@/lib/world';
-import {Entity} from '@/types/entity';
-import {System, SystemChange} from '@/types/system';
+import { logger } from '@/lib/logger';
+import { SystemResults, changeEventName } from '@/lib/system';
+import { wrap } from '@/lib/util';
+import { ReservedKeys, World } from '@/lib/world';
+import { Entity } from '@/types/entity';
+import { System, SystemChange } from '@/types/system';
 
 /**
  * Adds deleted entities to the revival queue to reclaim their id later.
  */
-export const sendDeadEntitiesToPurgatory: System = world => {
+export const sendDeadEntitiesToPurgatory: System = async world => {
   const deletions = world.getEvents<SystemChange<Entity>>(
     changeEventName('delete', ReservedKeys.ID)
   );
@@ -50,7 +50,7 @@ const getCreatedIds = (world: World) => {
  * Keep track of entites who are created from the revival queue, and remove
  * them from the queue.
  */
-export const reviveEntities: System = world => {
+export const reviveEntities: System = async world => {
   const ids = getCreatedIds(world);
   if (ids.length === 0) return;
   if (world.getResource(ReservedKeys.ENTITY_REVIVAL_STACK) === undefined)
@@ -70,7 +70,7 @@ export const reviveEntities: System = world => {
  *
  * Note: Seems like it should cause gaps, but reviveIDs should handle it.
  */
-export const updateMaxID: System = world => {
+export const updateMaxID: System = async world => {
   const ids = getCreatedIds(world);
   if (ids.length === 0) return;
 
