@@ -1,6 +1,6 @@
-import { logger } from '@/lib/logger';
-import { ReservedKeys } from '@/lib/world';
-import { System } from '@/types/system';
+import {logger} from '@/lib/logger';
+import {ReservedKeys} from '@/lib/world';
+import {System} from '@/types/system';
 
 export const logStage: System = async world => {
   logger.debug(world.getResource<string>(ReservedKeys.STAGE));

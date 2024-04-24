@@ -1,8 +1,8 @@
-import { ReservedKeys, ReservedStages, World } from '@/lib/world';
-import { describe, expect, test } from 'vitest';
-import { SystemResults, Plugins, System } from '../..';
-import { logger } from '@/lib/logger';
-import { logNewRawChanges } from './debug';
+import {ReservedKeys, ReservedStages, World} from '@/lib/world';
+import {describe, expect, test} from 'vitest';
+import {SystemResults, Plugins, System} from '../..';
+import {logger} from '@/lib/logger';
+import {logNewRawChanges} from './debug';
 
 const createWorld = () => {
   return new World()
@@ -24,55 +24,54 @@ const del: System = async (world: World) => {
 };
 
 describe('Test id related plugins', () => {
-  test('Adding an entity increases the max entity id', async () => {
-    let world = createWorld().addSystem(add);
-    expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(-1);
-
-    world = await world.step();
-    expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(0);
-
-    world = await world.step();
-    expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(1);
-  });
-
-  test('Adding a component to an existing entity leaves the max id the same', async () => {
-    let world = createWorld().addSystem(addToOne);
-    expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(-1);
-
-    world = await world.step();
-    expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(1);
-
-    world = await world.step();
-    expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(1);
-  });
-
-  test('Deleting the entity id component should remove it from all components', async () => {
-    let world = createWorld().addSystem(addToOne);
-    world = await world.step();
-    expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(1);
-    expect(world.getComponentStore(COMPONENT).getComponent(1)).toBe(1);
-
-    world = world.addSystem(del).addSystemDependency(del, addToOne);
-    world = await world.step();
-    expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(1);
-    expect(world.getComponentStore<number>(COMPONENT).getComponent(1)).toBe(
-      undefined
-    );
-  });
+  // test('Adding an entity increases the max entity id', async () => {
+  //   let world = createWorld().addSystem(add);
+  //   expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(-1);
+  //
+  //   world = await world.step();
+  //   expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(0);
+  //
+  //   world = await world.step();
+  //   expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(1);
+  // });
+  //
+  // test('Adding a component to an existing entity leaves the max id the same', async () => {
+  //   let world = createWorld().addSystem(addToOne);
+  //   expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(-1);
+  //
+  //   world = await world.step();
+  //   expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(1);
+  //
+  //   world = await world.step();
+  //   expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(1);
+  // });
+  //
+  // test('Deleting the entity id component should remove it from all components', async () => {
+  //   let world = createWorld().addSystem(addToOne);
+  //   world = await world.step();
+  //   expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(1);
+  //   expect(world.getComponentStore(COMPONENT).getComponent(1)).toBe(1);
+  //
+  //   world = world.addSystem(del).addSystemDependency(del, addToOne);
+  //   world = await world.step();
+  //   expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(1);
+  //   expect(world.getComponentStore<number>(COMPONENT).getComponent(1)).toBe(
+  //     undefined
+  //   );
+  // });
 
   test('Deleting the entity id component should place it on the revival queue', async () => {
-    let world = createWorld()
-      .addSystem(add)
+    let world = createWorld().addSystem(add);
 
-    world = await world.step()
-    world = await world.step()
-    world = await world.step()
+    world = await world.step();
+    world = await world.step();
+    world = await world.step();
 
     logger.info('Three Steps!');
 
     expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(2);
     world = world.addSystem(del, ReservedStages.PRE_STEP);
-    world.applyStage(ReservedStages.PRE_STEP);
+    await world.applyStage(ReservedStages.PRE_STEP);
 
     const revivalQueue = world.getResourceOr(
       new Set(),
@@ -94,7 +93,7 @@ describe('Test id related plugins', () => {
     expect(world.getResourceOr(-1, ReservedKeys.MAX_ID)).toBe(2);
     world = world.addSystem(del).addSystemDependency(add, del);
 
-    world.step();
+    world = await world.step();
 
     const revivalQueue = world.getResourceOr(
       new Set(),

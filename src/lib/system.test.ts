@@ -1,7 +1,7 @@
-import { SystemResults, createSystemChange, requireEvents } from './system';
-import { describe, it, expect } from 'vitest';
-import { World } from './world';
-import { System } from '..';
+import {SystemResults, createSystemChange, requireEvents} from './system';
+import {describe, it, expect} from 'vitest';
+import {World} from './world';
+import {System} from '..';
 
 describe('System Changes', () => {
   it('Should package messages', () => {
@@ -49,10 +49,8 @@ describe('Required Events Helper', () => {
     expect(other.name).toBe('system');
   });
   it('Example works', () => {
-
-
     let system: System = async () => new SystemResults();
-    const onTick = (system: System) => requireEvents(['tick'], system)
+    const onTick = (system: System) => requireEvents(['tick'], system);
 
     system = onTick(system);
     expect(1).toBe(1);
@@ -60,14 +58,15 @@ describe('Required Events Helper', () => {
 
   it('Should only trigger when specified', async () => {
     // Just has a non-zero change length to distinguish it
-    let add: System = async (_: World) => new SystemResults().add(['resources', 'x'], 1);
+    let add: System = async (_: World) =>
+      new SystemResults().add(['resources', 'x'], 1);
     let world = new World();
 
-    let result = await add(world)
+    let result = await add(world);
     expect(result!.changes.length).toBe(1);
 
     add = requireEvents(['tick'], add);
-    result = await add(world)
+    result = await add(world);
     expect(result!.changes.length).toBe(0);
 
     // Add the required event
@@ -75,7 +74,7 @@ describe('Required Events Helper', () => {
     expect(world.getEvents('tick').length).toBe(1);
 
     // Expect it to trigger
-    result = await add(world)
+    result = await add(world);
     expect(result!.changes.length).toBe(1);
   });
 });

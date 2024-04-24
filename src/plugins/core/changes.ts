@@ -4,13 +4,13 @@ import {
   createSystemChange,
   isChangeEvent,
 } from '@/lib/system';
-import { logger } from '@/lib/logger';
-import { first, second, wrap } from '@/lib/util';
-import { COMPONENTS, EVENTS, RESOURCES, ReservedKeys } from '@/lib/world';
-import { ChangeType, System, SystemChange } from '@/types/system';
-import { hasPath, zip } from 'ramda';
-import { Entity } from '@/types/entity';
-import { DataType } from '@/types/world';
+import {logger} from '@/lib/logger';
+import {first, second, wrap} from '@/lib/util';
+import {COMPONENTS, EVENTS, RESOURCES, ReservedKeys} from '@/lib/world';
+import {ChangeType, System, SystemChange} from '@/types/system';
+import {hasPath, zip} from 'ramda';
+import {Entity} from '@/types/entity';
+import {DataType} from '@/types/world';
 
 const createChangeEvent = (
   rawChange: SystemChange<any>
@@ -114,7 +114,7 @@ export const executeEntities: System = async world => {
         createSystemChange<unknown>('delete', [COMPONENTS, name], [], id)
       )
   );
-  logger.debug({ msg: 'TO DIE', toDie, changes, results });
+  logger.debug({msg: 'TO DIE', toDie, changes, results});
   return new SystemResults(changes).setEvents(
     ReservedKeys.ENTITY_DEATHS_DOORS,
     []
@@ -184,7 +184,7 @@ export const addCreatedEvents: System = async world => {
     const createdIDs = created.map(first) as number[];
     const createdValues = created.map(second) as unknown[];
 
-    return { ...change, value: createdValues, ids: createdIDs };
+    return {...change, value: createdValues, ids: createdIDs};
   };
 
   const hadSpecifiedResource = (change: SystemChange<unknown>): boolean => {

@@ -1,9 +1,9 @@
-import { logger } from '@/lib/logger';
-import { SystemResults, changeEventName } from '@/lib/system';
-import { wrap } from '@/lib/util';
-import { ReservedKeys, World } from '@/lib/world';
-import { Entity } from '@/types/entity';
-import { System, SystemChange } from '@/types/system';
+import {logger} from '@/lib/logger';
+import {SystemResults, changeEventName} from '@/lib/system';
+import {wrap} from '@/lib/util';
+import {ReservedKeys, World} from '@/lib/world';
+import {Entity} from '@/types/entity';
+import {System, SystemChange} from '@/types/system';
 
 /**
  * Adds deleted entities to the revival queue to reclaim their id later.

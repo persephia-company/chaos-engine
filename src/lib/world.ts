@@ -1,14 +1,14 @@
-import { Entity } from '@/types/entity';
-import { ComponentStore } from '@/types/store';
-import { System, SystemChange } from '@/types/system';
-import { Updateable } from '@/types/updateable';
-import { WorldAPI, WorldStore } from '@/types/world';
-import { Queue } from '@datastructures-js/queue';
-import { DepGraph } from 'dependency-graph';
+import {Entity} from '@/types/entity';
+import {ComponentStore} from '@/types/store';
+import {System, SystemChange} from '@/types/system';
+import {Updateable} from '@/types/updateable';
+import {WorldAPI, WorldStore} from '@/types/world';
+import {Queue} from '@datastructures-js/queue';
+import {DepGraph} from 'dependency-graph';
 import stringify from 'json-stable-stringify';
 import * as R from 'ramda';
-import { SparseComponentStore } from './store';
-import { SystemResults, createSystemChange } from './system';
+import {SparseComponentStore} from './store';
+import {SystemResults, createSystemChange} from './system';
 import {
   groupBy,
   hash_cyrb53,
@@ -17,7 +17,7 @@ import {
   objUpdate,
   wrap,
 } from './util';
-import { logger } from './logger';
+import {logger} from './logger';
 
 export const COMPONENTS = 'components';
 export const RESOURCES = 'resources';
@@ -163,7 +163,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
    * Adds a new System to the world.
    */
   addSystem(system: System, stage: string = ReservedStages.UPDATE) {
-    logger.debug({ msg: 'Adding System', system: system.name, stage });
+    logger.debug({msg: 'Adding System', system: system.name, stage});
     const systems = this.getSystems();
     const stageSystems: Set<System> = R.propOr(
       new Set<System>(),
@@ -228,7 +228,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
    * Queries the world for all supplied components
    */
   query = <T extends any[]>(components: string[]): T[] => {
-    logger.debug({ name: 'World.query', components });
+    logger.debug({name: 'World.query', components});
 
     const componentStores = components
       .map(component => this.components[component])
@@ -278,7 +278,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
         Array.from(deps.values()),
       ])
     );
-    return hash_cyrb53(stringify({ systems, dependencies }));
+    return hash_cyrb53(stringify({systems, dependencies}));
   };
 
   private isSystemGraphCurrent = (): boolean => {
@@ -352,30 +352,41 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       const batches = stageBatches[_stage];
       if (!batches) return world;
 
-      const applySystemsBatch = async (world: World, batch: System[]): Promise<World> => {
-        const rawResults = await Promise.all(batch.map(this.applySystem))
+      const applySystemsBatch = async (
+        world: World,
+        batch: System[]
+      ): Promise<World> => {
+        const rawResults = await Promise.all(batch.map(this.applySystem));
         // Join the results into one big one
         // TODO: make more efficient
-        const systemResults = rawResults.filter(result => result !== undefined) as SystemResults[]
+        const systemResults = rawResults.filter(
+          result => result !== undefined
+        ) as SystemResults[];
 
-        const finalResult = systemResults.reduce((res, next) => res.merge(next), new SystemResults())
-        return world.applySystemResults(finalResult)
+        const finalResult = systemResults.reduce(
+          (res, next) => res.merge(next),
+          new SystemResults()
+        );
+        return world.applySystemResults(finalResult);
       };
 
-      const applyBatchInterleaved = async (world: World, batch: System[]): Promise<World> => {
+      const applyBatchInterleaved = async (
+        world: World,
+        batch: System[]
+      ): Promise<World> => {
         const batches = [
           ...(stageBatches[ReservedStages.PRE_BATCH] ?? []),
           batch,
-          ...(stageBatches[ReservedStages.POST_BATCH] ?? [])
-        ]
+          ...(stageBatches[ReservedStages.POST_BATCH] ?? []),
+        ];
         for (const batch of batches) {
-          world = await applySystemsBatch(world, batch)
+          world = await applySystemsBatch(world, batch);
         }
         return world;
       };
 
       for (const batch of batches) {
-        world = await applyBatchInterleaved(world, batch)
+        world = await applyBatchInterleaved(world, batch);
       }
       return world;
     };
@@ -390,7 +401,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   };
 
   applySystem = async (system: System) => {
-    logger.debug({ msg: `applySystem: ${system.name}`, system: system.name });
+    logger.debug({msg: `applySystem: ${system.name}`, system: system.name});
     return system(this);
   };
 
@@ -401,7 +412,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   applySystemResults = (results: SystemResults): World => {
     // NOTE: We could eventually make it so that all this does is add the raw results to the event queue.
     // Then all the remaining behaviour could be accomplished with systems...
-    logger.debug({ msg: 'Apply System Results', results });
+    logger.debug({msg: 'Apply System Results', results});
 
     const applyChange = (world: World, change: SystemChange<any>): World => {
       // NOTE: Wrap with ids before we add the RAW event.
@@ -450,21 +461,21 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
         stage => !(Object.values(ReservedStages) as string[]).includes(stage)
       );
 
-    logger.debug({ msg: 'World pre step', this: this });
+    logger.debug({msg: 'World pre step', this: this});
     const stages = [
       ReservedStages.PRE_STEP,
       ReservedStages.UPDATE,
       ...stageOrder,
-      ReservedStages.POST_STEP
-    ]
+      ReservedStages.POST_STEP,
+    ];
 
-    let world: World = this
+    let world: World = this;
     for (const stage of stages) {
-      world = await this.applyStage(stage)
+      world = await this.applyStage(stage);
     }
-    logger.debug({ msg: 'World post step', world });
+    logger.debug({msg: 'World post step', world});
     return world;
-  }
+  };
 
   isFinished = (): boolean => {
     return this.getResourceOr(false, ReservedKeys.GAME_SHOULD_QUIT);
@@ -491,11 +502,11 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   }
 
   forwardToComponents<T>(change: SystemChange<T>): World {
-    const { method, path, value } = change;
+    const {method, path, value} = change;
 
     const ids = wrap(change.ids);
 
-    logger.debug({ msg: 'forwarding to components', change, ids });
+    logger.debug({msg: 'forwarding to components', change, ids});
 
     // Call the appropriate method on the store
     const component = path[1];

@@ -1,7 +1,7 @@
-import { SystemResults } from '..';
-import { Entity } from './entity';
+import {SystemResults} from '..';
+import {Entity} from './entity';
 import ComponentStore from './store';
-import { System } from './system';
+import {System} from './system';
 
 export type WorldStore = {
   components: Record<string, ComponentStore<unknown>>;

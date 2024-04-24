@@ -1,7 +1,7 @@
-import { World, ReservedStages } from '@/lib/world';
-import { describe, expect, test } from 'vitest';
-import { SystemResults, Plugins, System } from '../..';
-import { debugPlugin } from '.';
+import {World, ReservedStages} from '@/lib/world';
+import {describe, expect, test} from 'vitest';
+import {SystemResults, Plugins, System} from '../..';
+import {debugPlugin} from '.';
 
 const createWorld = () => {
   return new World().addPlugin(Plugins.corePlugin);

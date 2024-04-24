@@ -1,8 +1,8 @@
-import { ReservedKeys, ReservedStages, World } from '@/lib/world';
-import { describe, expect, test } from 'vitest';
-import { SystemResults, Plugins, System, changeEventName } from '../..';
-import { logger } from '@/lib/logger';
-import { logNewRawChanges } from './debug';
+import {ReservedKeys, ReservedStages, World} from '@/lib/world';
+import {describe, expect, test} from 'vitest';
+import {SystemResults, Plugins, System, changeEventName} from '../..';
+import {logger} from '@/lib/logger';
+import {logNewRawChanges} from './debug';
 
 const createWorld = () => {
   return new World()
@@ -77,9 +77,9 @@ describe('Generation of ChangeEvents from RawChanges', () => {
     let world = await createWorld()
       .addSystem(add, ReservedStages.START_UP)
       .addSystem(delComponent)
-      .applyStage(ReservedStages.START_UP)
+      .applyStage(ReservedStages.START_UP);
 
-    world = await world.step()
+    world = await world.step();
 
     expect(world.getComponentStore(COMPONENT).hasEntity(ID)).false;
     expect(world.getComponentStore(ReservedKeys.ID).hasEntity(ID)).true;
@@ -97,7 +97,7 @@ describe('Generation of ChangeEvents from RawChanges', () => {
     let world = await createWorld()
       .addSystem(setId, ReservedStages.START_UP)
       .addSystem(delId)
-      .applyStage(ReservedStages.START_UP)
+      .applyStage(ReservedStages.START_UP);
 
     world = await world.step();
 
@@ -111,8 +111,8 @@ describe('Generation of ChangeEvents from RawChanges', () => {
       .addSystem(add, ReservedStages.START_UP)
       .addSystem(delId)
       // Add Dummy system to see effects of terminating the entity in a previous post-batch
-      .addSystem(async () => { }, ReservedStages.POST_STEP)
-      .applyStage(ReservedStages.START_UP)
+      .addSystem(async () => {}, ReservedStages.POST_STEP)
+      .applyStage(ReservedStages.START_UP);
 
     world = await world.step();
 
@@ -136,7 +136,7 @@ describe('Generation of ChangeEvents from RawChanges', () => {
       .addSystem(add, ReservedStages.START_UP)
       .addSystem(addOther, ReservedStages.START_UP)
       .addSystem(delId)
-      .applyStage(ReservedStages.START_UP)
+      .applyStage(ReservedStages.START_UP);
 
     world = await world.step();
 
