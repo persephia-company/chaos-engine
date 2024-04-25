@@ -1,7 +1,7 @@
 import {SystemResults} from '@/lib/system';
-import {World} from '@/lib/world';
+import {EVENTS, World} from '@/lib/world';
 import {ReservedStages} from '@/lib/world';
-import {reviveEntities, sendDeadEntitiesToPurgatory, updateMaxID} from './ids';
+import {reviveEntities, updateEntityRevivalQueue, updateMaxID} from './ids';
 import {
   addChangeEvents,
   addCreatedEvents,
@@ -34,8 +34,8 @@ export const corePlugin = (world: World): World => {
       .addSystemDependency(addModifiedEvents, addChangeEvents)
 
       // Entity recycling systems
-      .addSystem(sendDeadEntitiesToPurgatory, ReservedStages.POST_BATCH)
-      .addSystemDependency(sendDeadEntitiesToPurgatory, addChangeEvents)
+      .addSystem(updateEntityRevivalQueue, ReservedStages.POST_BATCH)
+      .addSystemDependency(updateEntityRevivalQueue, addChangeEvents)
 
       .addSystem(reviveEntities, ReservedStages.POST_BATCH)
       .addSystemDependency(reviveEntities, addChangeEvents)
@@ -61,4 +61,4 @@ export const debugPlugin = (world: World): World => {
 /**
  * Deletes all events from the world. Designed to be called at the end of each step.
  */
-const resetEvents: System = async () => new SystemResults().set(['events'], {});
+const resetEvents: System = async () => new SystemResults().set([EVENTS], {});

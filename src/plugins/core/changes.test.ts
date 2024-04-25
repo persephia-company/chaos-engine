@@ -10,6 +10,17 @@ const createWorld = () => {
     .addSystem(logNewRawChanges, ReservedStages.POST_BATCH);
 };
 
+const createWorldWithSystems = (...systems: System[]) => {
+  let world = createWorld();
+
+  for (const system of systems) {
+    world = world.addSystem(system);
+  }
+
+  world.applyStage(ReservedStages.START_UP);
+  return world;
+};
+
 const ID = 2;
 const OTHER_ID = 1;
 const VALUE = 420;
@@ -38,19 +49,23 @@ const delComponent: System = async (world: World) => {
 
 describe('Generation of ChangeEvents from RawChanges', () => {
   test('A simple add system creates a ChangeEvent', async () => {
-    const world = await createWorld().addSystem(add).step();
+    const world = createWorldWithSystems(add);
+    await world.step();
+
     const events = world.getEvents(changeEventName('add', COMPONENT));
     expect(events.length).toBe(1);
   });
 
   test('A simple add system creates a corresponding id change', async () => {
-    const world = await createWorld().addSystem(add).step();
+    const world = createWorldWithSystems(add);
+    await world.step();
     const events = world.getEvents(changeEventName('add', ReservedKeys.ID));
     expect(events.length).toBe(1);
   });
 
   test("Change events don't create further change events", async () => {
-    const world = await createWorld().addSystem(add).step();
+    const world = createWorldWithSystems(add);
+    await world.step();
     const events = world.getEvents(changeEventName('add', ReservedKeys.ID));
     expect(events.length).toBe(1);
 
@@ -62,7 +77,8 @@ describe('Generation of ChangeEvents from RawChanges', () => {
   });
 
   test('Setting ids only creates one changeEvent', async () => {
-    const world = await createWorld().addSystem(setId).step();
+    const world = createWorldWithSystems(setId);
+    await world.step();
 
     expect(
       world.getEvents(changeEventName('set', ReservedKeys.ID)).length
@@ -74,12 +90,12 @@ describe('Generation of ChangeEvents from RawChanges', () => {
   });
 
   test('Deleting a component should not delete the corresponding id', async () => {
-    let world = await createWorld()
+    const world = createWorld()
       .addSystem(add, ReservedStages.START_UP)
-      .addSystem(delComponent)
-      .applyStage(ReservedStages.START_UP);
+      .addSystem(delComponent);
 
-    world = await world.step();
+    await world.applyStage(ReservedStages.START_UP);
+    await world.step();
 
     expect(world.getComponentStore(COMPONENT).hasEntity(ID)).false;
     expect(world.getComponentStore(ReservedKeys.ID).hasEntity(ID)).true;
@@ -94,12 +110,12 @@ describe('Generation of ChangeEvents from RawChanges', () => {
   });
 
   test('Deleting an id component should delete that id', async () => {
-    let world = await createWorld()
+    const world = createWorld()
       .addSystem(setId, ReservedStages.START_UP)
-      .addSystem(delId)
-      .applyStage(ReservedStages.START_UP);
+      .addSystem(delId);
 
-    world = await world.step();
+    await world.applyStage(ReservedStages.START_UP);
+    await world.step();
 
     // Should delete ID
     expect(world.getComponentStore(ReservedKeys.ID).hasEntity(ID)).false;
@@ -107,14 +123,14 @@ describe('Generation of ChangeEvents from RawChanges', () => {
   });
 
   test('Deleting an id should delete related components and create events.', async () => {
-    let world = await createWorld()
+    const world = createWorld()
       .addSystem(add, ReservedStages.START_UP)
       .addSystem(delId)
       // Add Dummy system to see effects of terminating the entity in a previous post-batch
-      .addSystem(async () => {}, ReservedStages.POST_STEP)
-      .applyStage(ReservedStages.START_UP);
+      .addSystem(async () => {}, ReservedStages.POST_STEP);
 
-    world = await world.step();
+    await world.applyStage(ReservedStages.START_UP);
+    await world.step();
 
     // Should delete ID
     expect(world.getComponentStore(ReservedKeys.ID).hasEntity(ID)).false;
@@ -132,13 +148,13 @@ describe('Generation of ChangeEvents from RawChanges', () => {
   });
 
   test('Deleting an id should not create deletion change events for unowned components', async () => {
-    let world = await createWorld()
+    const world = createWorldWithSystems()
       .addSystem(add, ReservedStages.START_UP)
       .addSystem(addOther, ReservedStages.START_UP)
-      .addSystem(delId)
-      .applyStage(ReservedStages.START_UP);
+      .addSystem(delId);
 
-    world = await world.step();
+    await world.applyStage(ReservedStages.START_UP);
+    await world.step();
 
     // Should delete ID
     expect(
@@ -153,7 +169,8 @@ describe('Generation of ChangeEvents from RawChanges', () => {
 
 describe('Test generation of ModifiedChanges from ChangeEvents', () => {
   test('A simple add system creates a CreatedChange', async () => {
-    const world = await createWorld().addSystem(add).step();
+    const world = createWorldWithSystems().addSystem(add);
+    await world.step();
     const events = world.getEvents(changeEventName('modified', COMPONENT));
     expect(events.length).toBe(1);
   });
@@ -162,7 +179,8 @@ describe('Test generation of ModifiedChanges from ChangeEvents', () => {
 // BUG: Failing but might require an overhaul of how systems are processed by the world.
 describe('Test generation of CreatedChanges from ChangeEvents', () => {
   test('A simple add system creates a CreatedChange', async () => {
-    const world = await createWorld().addSystem(add).step();
+    const world = createWorldWithSystems().addSystem(add);
+    await world.step();
     const events = world.getEvents(changeEventName('created', COMPONENT));
     expect(events.length).toBe(1);
   });

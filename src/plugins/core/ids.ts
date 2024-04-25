@@ -8,7 +8,7 @@ import {System, SystemChange} from '@/types/system';
 /**
  * Adds deleted entities to the revival queue to reclaim their id later.
  */
-export const sendDeadEntitiesToPurgatory: System = async world => {
+export const updateEntityRevivalQueue: System = async world => {
   const deletions = world.getEvents<SystemChange<Entity>>(
     changeEventName('delete', ReservedKeys.ID)
   );

@@ -324,9 +324,28 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     return R.reduce(addStageBatch, {}, Object.keys(systems));
   };
 
-  applyStage = async (stage: string): Promise<World> => {
+  /**
+   * Get the results of all systems in a batch, join them and apply them to the world.
+   */
+  private async applySystemsBatch(batch: System[]): Promise<World> {
+    const rawResults = await Promise.all(batch.map(this.applySystem));
+    // Join the results into one big one
+    // TODO: make more efficient
+    const systemResults = rawResults.filter(
+      result => result !== undefined
+    ) as SystemResults[];
+
+    const finalResult = systemResults.reduce(
+      (res, next) => res.merge(next),
+      new SystemResults()
+    );
+
+    return this.applySystemResults(finalResult);
+  }
+
+  applyStage = async (stage: string): Promise<void> => {
     const systems = this.getSystems()[stage];
-    if (!systems) return this;
+    if (!systems) return;
 
     // Update the stage
     // NOTE: not sure if it's best idea to have this call through the api
@@ -350,24 +369,6 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       const batches = stageBatches[_stage];
       if (!batches) return world;
 
-      const applySystemsBatch = async (
-        world: World,
-        batch: System[]
-      ): Promise<World> => {
-        const rawResults = await Promise.all(batch.map(this.applySystem));
-        // Join the results into one big one
-        // TODO: make more efficient
-        const systemResults = rawResults.filter(
-          result => result !== undefined
-        ) as SystemResults[];
-
-        const finalResult = systemResults.reduce(
-          (res, next) => res.merge(next),
-          new SystemResults()
-        );
-        return world.applySystemResults(finalResult);
-      };
-
       const applyBatchInterleaved = async (
         world: World,
         batch: System[]
@@ -378,7 +379,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
           ...(stageBatches[ReservedStages.POST_BATCH] ?? []),
         ];
         for (const batch of batches) {
-          world = await applySystemsBatch(world, batch);
+          world = await world.applySystemsBatch(batch);
         }
         return world;
       };
@@ -390,12 +391,11 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     };
 
     logger.debug(`PRE-STAGE ${stage}`);
-    world = await _applyStage(ReservedStages.PRE_STAGE, world);
+    await _applyStage(ReservedStages.PRE_STAGE, world);
     logger.debug(`STAGE ${stage}`);
-    world = await _applyStage(stage, world);
+    await _applyStage(stage, world);
     logger.debug(`POST-STAGE ${stage}`);
-    world = await _applyStage(ReservedStages.POST_STAGE, world);
-    return world;
+    await _applyStage(ReservedStages.POST_STAGE, world);
   };
 
   applySystem = async (system: System) => {
@@ -448,7 +448,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     return buildDependencyGraph(stages, dependencies);
   };
 
-  async step(this: this) {
+  async step() {
     logger.debug('STEPPING');
 
     // TODO: Cache this
@@ -467,12 +467,16 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       ReservedStages.POST_STEP,
     ];
 
-    // NOTE: This has broken out of the functional idea
     for (const stage of stages) {
       await this.applyStage(stage);
     }
     logger.debug({msg: 'World post step', world: this});
-    return this;
+  }
+
+  async stepN(n: number) {
+    for (let i = 0; i < n; i++) {
+      await this.step();
+    }
   }
 
   isFinished = (): boolean => {
@@ -480,11 +484,11 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   };
 
   async play() {
-    let world = await this.applyStage(ReservedStages.START_UP);
-    while (!world.isFinished()) {
-      world = await world.step();
+    await this.applyStage(ReservedStages.START_UP);
+    while (!this.isFinished()) {
+      await this.step();
     }
-    return await world.applyStage(ReservedStages.TEAR_DOWN);
+    await this.applyStage(ReservedStages.TEAR_DOWN);
   }
 
   private updateComponentStore<T>(
@@ -584,13 +588,6 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       objDelete(path, wrap(values), this);
       return this;
     }
-
-    // Must be components
-    // NOTE: Pulled into plugin changes.executeEntities
-    // Special case where we delete the entity
-    // if (path[1] === ReservedKeys.ID) {
-    //   return this.deleteEntities(wrap(ids));
-    // }
 
     return this.forwardToComponents(
       createSystemChange('delete', path, values, ids) as SystemChange<unknown>

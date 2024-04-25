@@ -177,11 +177,12 @@ describe('Running The Game', () => {
       return new SystemResults();
     };
 
-    const world = await new World()
+    const world = new World()
       .addSystem(sys1, ReservedStages.START_UP)
       .addSystem(sys2, ReservedStages.START_UP)
-      .addSystemDependency(sys2, sys1)
-      .applyStage(ReservedStages.START_UP);
+      .addSystemDependency(sys2, sys1);
+
+    await world.applyStage(ReservedStages.START_UP);
 
     expect(satisfiesInvariant(world)).true;
     expect(count1).toBe(1);

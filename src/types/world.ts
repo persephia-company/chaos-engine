@@ -12,11 +12,9 @@ export type WorldStore = {
 export interface WorldAPI<A> {
   createEntity: () => Entity;
   createEntities: (n: number) => Entity[];
-  deleteEntity: (id: Entity) => A;
-  deleteEntities: (ids: Entity[]) => A;
   getResourceOr: <T>(or: T, key: string) => T;
   getResource: <T>(key: string) => T | undefined;
-  setResource: <T>(key: string, value: T) => A;
+  setResource: <T>(key: string, value: T) => void;
   getEvents: <T>(key: string) => T[];
   getSystems: () => Record<string, Set<System>>;
   getComponentStore: <T>(key: string) => ComponentStore<T>;
@@ -25,11 +23,12 @@ export interface WorldAPI<A> {
   addStageDependency: (stage: string, dependency: string) => A;
   addPlugin: (plugin: (world: A) => A) => A;
   query: <T extends any[]>(components: string[]) => T[];
-  applyStage: (stage: string) => Promise<A>;
+  applyStage: (stage: string) => Promise<void>;
   applySystem: (system: System) => Promise<SystemResults | void>;
-  applySystemResults: (results: SystemResults) => A;
-  step: () => Promise<A>;
-  play: () => Promise<A>;
+  applySystemResults: (results: SystemResults) => void;
+  stepN: (n: number) => Promise<void>;
+  step: () => Promise<void>;
+  play: () => Promise<void>;
   isFinished: () => boolean;
 }
 
