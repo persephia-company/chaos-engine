@@ -189,4 +189,22 @@ describe('Running The Game', () => {
     expect(count2).toBe(1);
     expect(rightOrder).true;
   });
+
+  test('Resources specified by system should be available to future systems', async () => {
+    const setRes: System = async () => {
+      return new SystemResults().setResource('X', 1);
+    };
+    const otherSystem: System = async world => {
+      expect(world.getResource('X')).toBe(1);
+    };
+
+    const world = new World()
+      .addSystem(setRes)
+      .addSystem(otherSystem)
+      .addSystemDependency(otherSystem, setRes);
+
+    await world.step();
+
+    expect(world.getResource('X')).toBe(1);
+  });
 });
