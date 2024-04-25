@@ -1,5 +1,11 @@
 # @persephia/chaos-engine
 
+## 0.1.1
+
+### Patch Changes
+
+- d29743b: Lessen api requirements
+
 ## 0.1.0
 
 ### Minor Changes
