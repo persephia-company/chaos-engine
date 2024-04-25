@@ -329,6 +329,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
    */
   private async applySystemsBatch(batch: System[]): Promise<World> {
     const rawResults = await Promise.all(batch.map(this.applySystem));
+    logger.debug({msg: 'Batch Raw Results', rawResults});
     // Join the results into one big one
     // TODO: make more efficient
     const systemResults = rawResults.filter(
@@ -398,9 +399,9 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     await _applyStage(ReservedStages.POST_STAGE, world);
   };
 
-  applySystem = async (system: System) => {
+  applySystem = async (system: System): Promise<SystemResults | void> => {
     logger.debug({msg: `applySystem: ${system.name}`, system: system.name});
-    return system(this);
+    return await system(this);
   };
 
   /**
@@ -410,7 +411,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   applySystemResults = (results: SystemResults): World => {
     // NOTE: We could eventually make it so that all this does is add the raw results to the event queue.
     // Then all the remaining behaviour could be accomplished with systems...
-    logger.debug({msg: 'Apply System Results', results});
+    logger.debug({msg: 'applySystemResults', results});
 
     const applyChange = (world: World, change: SystemChange<any>): World => {
       // NOTE: Wrap with ids before we add the RAW event.
