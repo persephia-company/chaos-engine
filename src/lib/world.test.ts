@@ -199,11 +199,11 @@ describe('Running The Game', () => {
     };
 
     const world = new World()
-      .addSystem(setRes)
-      .addSystem(otherSystem)
+      .addSystem(setRes, ReservedStages.START_UP)
+      .addSystem(otherSystem, ReservedStages.START_UP)
       .addSystemDependency(otherSystem, setRes);
 
-    await world.step();
+    await world.applyStage(ReservedStages.START_UP);
 
     expect(world.getResource('X')).toBe(1);
   });
