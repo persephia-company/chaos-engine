@@ -53,6 +53,10 @@ export const hasID = <T, ID = Entity>(change: Change<T, ID>): boolean => {
   return isComponentChange(change) && change.id !== undefined;
 };
 
+/**
+ * If the change has an UnbornEntity for an Id,
+ * increase it's offset by the supplied amount.
+ */
 export const incrementChangeOffset = <T>(
   change: Change<T, Entity>,
   amount: number
@@ -66,6 +70,10 @@ export const incrementChangeOffset = <T>(
   return {...change, id};
 };
 
+/**
+ * Converts this change from having an Entity as its id,
+ * to having just the EntityID (a number) as its id.
+ */
 export const extractChangeEntityId = <T>(
   change: Change<T, RealEntity>
 ): Change<T, EntityID> => {
@@ -77,6 +85,10 @@ export const extractChangeEntityId = <T>(
   return {...change, id};
 };
 
+/**
+ * If the change is for an unborn entity, and that entity has the
+ * supplied offset, replace it with a new real Entity of the supplied id.
+ */
 export const replaceUnborn = <T>(
   change: Change<T, Entity>,
   offset: number,
