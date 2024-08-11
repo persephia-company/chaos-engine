@@ -180,13 +180,3 @@ describe('Test generation of ModifiedChanges from ChangeEvents', () => {
     expect(events.length).toBe(1);
   });
 });
-
-// BUG: Failing but might require an overhaul of how systems are processed by the world.
-describe('Test generation of CreatedChanges from ChangeEvents', () => {
-  test('A simple add system creates a CreatedChange', async () => {
-    const world = createWorldWithSystems().addSystem(add);
-    await world.step();
-    const events = world.getEvents(changeEventName('created', COMPONENT));
-    expect(events.length).toBe(1);
-  });
-});

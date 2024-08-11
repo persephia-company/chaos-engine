@@ -1,5 +1,5 @@
 import {AddComponentChange, Change} from '@/types/change';
-import {Entity, RealEntity} from '@/types/entity';
+import {Entity, RealEntity, UnbornEntity} from '@/types/entity';
 import {isFixed, isUnborn} from '../entity';
 import {
   incrementChangeOffset,
@@ -16,14 +16,14 @@ export class Intention {
     this.generatedIds = generatedIds;
   }
 
-  createID(): Entity {
+  createID(): UnbornEntity {
     this.generatedIds += 1;
     const result: Entity = {exists: false, offset: this.generatedIds};
     return result;
   }
 
-  createIDs(amount: number): Entity[] {
-    const result: Entity[] = [];
+  createIDs(amount: number): UnbornEntity[] {
+    const result: UnbornEntity[] = [];
     while (result.length < amount) {
       result.push(this.createID());
     }
@@ -52,34 +52,59 @@ export class Intention {
     this.changes = this.changes.map(change =>
       replaceUnborn(change, offset, fixedId)
     );
+    return this;
   }
 
   /**
-   * Creates and returns a new SystemResults with the additional change.
+   * Creates and returns a new Intention with the additional change.
+   *
+   * It is assumed that any unborn entities contained in the supplied change are
+   * using the same offset as this intention, i.e. they shouldn't change.
    */
   addChange<T>(change: Change<T, Entity>): Intention {
-    return new Intention([...this.changes, change], this.generatedIds);
+    // Adjust max offset if necessary
+    if (
+      isComponentChange(change) &&
+      change.id !== undefined &&
+      isUnborn(change.id) &&
+      change.id.offset > this.generatedIds
+    ) {
+      // NOTE: We are causing gaps but preserving offset numbers here.
+      // Another solution would be to generate the new change's offset ourself
+      this.generatedIds = change.id.offset;
+    }
+    this.changes.push(change);
+    return this;
   }
 
   /**
-   * Creates and returns a new SystemResults with the additional changes.
+   * Creates and returns a new Intention with the additional changes.
+   *
+   * It is assumed that any unborn entities contained in the supplied changes are
+   * using the same offset as this intention, i.e. they shouldn't change.
    */
   addChanges<T>(changes: Change<T, Entity>[]): Intention {
-    return this.merge(new Intention(changes));
+    for (const change of changes) {
+      this.addChange(change);
+    }
+    return this;
   }
 
   /**
-   * Creates and returns a new SystemResults with the additional changes.
+   * Combines the changes of two intentions, recalculating the offsets
+   * of any unborn entities in the supplied intention so that they don't
+   * overlap.
+   *
+   * Mutates the current Intention.
    */
   merge(results: Intention): Intention {
     // Need to increase all the offsets of the other results
     const changesWithOffset = results.changes.map(change =>
       incrementChangeOffset(change, this.generatedIds)
     );
-    return new Intention(
-      this.changes.concat(changesWithOffset),
-      this.generatedIds + results.generatedIds
-    );
+    this.addChanges(changesWithOffset);
+    //this.generatedIds += results.generatedIds;
+    return this;
   }
 
   extractRealChanges(): Change<any, RealEntity>[] {
@@ -174,6 +199,13 @@ export class Intention {
     return result;
   }
 
+  deleteAllComponentsOfName(componentName: string) {
+    return this.addChange({
+      method: 'delete',
+      path: ['components', componentName],
+    });
+  }
+
   updateComponent<T>(
     componentName: string,
     fn: (value: T) => T,
@@ -259,5 +291,9 @@ export class Intention {
       method: 'delete',
       path: ['events', eventName],
     });
+  }
+
+  deleteEvents(eventName: string) {
+    return this.resetEvents(eventName);
   }
 }

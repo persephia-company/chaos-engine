@@ -105,6 +105,14 @@ export class SparseComponentStore<T> implements ComponentStore<T> {
     return zip(n(this.dense), n(this.components));
   }
 
+  reset(): SparseComponentStore<T> {
+    this.dense = [];
+    this.sparse = [];
+    this.components = [];
+    this.n = 0;
+    return this;
+  }
+
   /**
    * Removes the component associated with the supplied entity id,
    * if it exists.
@@ -114,11 +122,7 @@ export class SparseComponentStore<T> implements ComponentStore<T> {
   remove(id: EntityID): SparseComponentStore<T> {
     if (!this.hasEntity(id)) return this;
     if (this.n === 1) {
-      this.dense = [];
-      this.sparse = [];
-      this.components = [];
-      this.n = 0;
-      return this;
+      return this.reset();
     }
 
     const lastIndex = this.n - 1;
@@ -179,7 +183,7 @@ export class SparseComponentStore<T> implements ComponentStore<T> {
         return this;
       case 'delete':
         if (change.id === undefined) {
-          return this.logChangeError('delete', 'Missing entity id');
+          return this.reset();
         }
         return this.remove(change.id);
     }

@@ -12,14 +12,7 @@ export interface AddComponentChange<T, ID = Entity> {
   method: 'add';
   path: ComponentPath;
   value: T;
-  id?: ID;
-}
-
-export interface UpdateComponentChange<T, ID = Entity> {
-  method: 'update';
-  path: ComponentPath;
-  fn: (value: T) => T;
-  id?: ID;
+  id: ID;
 }
 
 export interface SetComponentChange<T, ID = Entity> {
@@ -29,10 +22,17 @@ export interface SetComponentChange<T, ID = Entity> {
   id: ID;
 }
 
+export interface UpdateComponentChange<T, ID = Entity> {
+  method: 'update';
+  path: ComponentPath;
+  fn: (value: T) => T;
+  id?: ID;
+}
+
 export interface DeleteComponentChange<ID = Entity> {
   method: 'delete';
   path: ComponentPath;
-  id: ID;
+  id?: ID;
 }
 
 export type ComponentChange<T, ID = Entity> =

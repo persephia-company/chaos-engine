@@ -1,8 +1,9 @@
 import {ReservedKeys, World} from './world';
 import {range} from 'ramda';
 import {describe, expect, test} from 'vitest';
-import {Intention, Plugins, System} from '..';
+import {Intention, Plugins, System, logger} from '..';
 import {ReservedStages} from '@/lib/world';
+import {fixedID} from './entity';
 
 const createWorld = () => {
   return new World().addPlugin(Plugins.corePlugin);
@@ -48,6 +49,17 @@ describe('System Tests', () => {
   const sys1 = async (world: World) => new Intention();
   const sys2 = async (world: World) => new Intention();
 
+  const addComponentWithFixedId = () =>
+    new Intention().addComponent('test', 1, fixedID(10));
+
+  const addComponentWithoutId = () => new Intention().addComponent('test', 2);
+
+  const addComponentWithUnbornId = () => {
+    const intention = new Intention();
+    const id = intention.createID();
+    return intention.addComponent('test', 3, id);
+  };
+
   test('Can add systems correctly', () => {
     let world = createWorld();
     world = world.addSystem(sys1);
@@ -82,6 +94,49 @@ describe('System Tests', () => {
 
   test('Adding system dependencies without adding the systems does nothing', () => {
     // TODO:
+  });
+
+  test('Applying intentions should reflect their changes in the world.', async () => {
+    const world = createWorld().applyIntention(addComponentWithFixedId());
+    const store = world.components['test'];
+    const idStore = world.components[ReservedKeys.ID];
+    expect(store.length()).toBe(1);
+    expect(store.hasEntity(10)).true;
+    expect(idStore.hasEntity(10)).true;
+  });
+
+  test('Intention AddComponentChanges without ids should create new ids in the world.', async () => {
+    const world = createWorld().applyIntention(addComponentWithoutId());
+    const store = world.components['test'];
+    const idStore = world.components[ReservedKeys.ID];
+    expect(store.length()).toBe(1);
+    expect(store.hasEntity(0)).true;
+    expect(store.getComponent(0)).toBe(2);
+    expect(idStore.hasEntity(0)).true;
+  });
+
+  test('Unborn ids from intention should be created when intentions are applied.', async () => {
+    const world = createWorld().applyIntention(addComponentWithUnbornId());
+    const store = world.components['test'];
+    const idStore = world.components[ReservedKeys.ID];
+    expect(store.length()).toBe(1);
+    expect(store.hasEntity(0)).true;
+    expect(store.getComponent(0)).toBe(3);
+    expect(idStore.hasEntity(0)).true;
+  });
+
+  test("Missing ids shouldn't conflict with unborn ids", async () => {
+    const unbornIntention = addComponentWithUnbornId();
+    const intention = unbornIntention.merge(addComponentWithoutId());
+    const world = createWorld().applyIntention(intention);
+    const store = world.components['test'];
+    const idStore = world.components[ReservedKeys.ID];
+    expect(store.length()).toBe(2);
+    expect(store.hasEntity(0)).true;
+    expect(store.hasEntity(1)).true;
+    expect(store.getComponent(0)).toBe(3);
+    expect(store.getComponent(1)).toBe(2);
+    expect(idStore.hasEntity(0)).true;
   });
 });
 
@@ -119,46 +174,6 @@ describe('API Tests', () => {
       path: ['components', component],
       value: 'there',
       id: 1,
-    });
-    const store = world.getComponentStore<string>(component);
-    const ids = world.getEntities();
-    expect(store.hasEntity(0), 'Entity with id of 0 is missing').toBe(true);
-    expect(store.hasEntity(1), 'Entity with id of 1 is missing').toBe(true);
-    expect(store.getComponent(0)).toBe('hi');
-    expect(store.getComponent(1)).toBe('there');
-    expect(ids.includes(0)).toBe(true);
-    expect(ids.includes(1)).toBe(true);
-    expect(satisfiesInvariant(world)).true;
-  });
-
-  test('Add component without ids', () => {
-    let world = createWorld();
-    const component = 'test';
-    world = world.applyChange({
-      method: 'add',
-      path: ['components', component],
-      value: 'hi',
-    });
-    const store = world.getComponentStore<string>(component);
-    const ids = world.getEntities();
-    expect(store.hasEntity(0), 'Entity with id of 0 is missing').toBe(true);
-    expect(store.getComponent(0)).toBe('hi');
-    expect(ids.includes(0)).toBe(true);
-    expect(satisfiesInvariant(world)).true;
-  });
-
-  test('Add multiple components without ids', () => {
-    let world = createWorld();
-    const component = 'test';
-    world = world.applyChange({
-      method: 'add',
-      path: ['components', component],
-      value: 'hi',
-    });
-    world = world.applyChange({
-      method: 'add',
-      path: ['components', component],
-      value: 'there',
     });
     const store = world.getComponentStore<string>(component);
     const ids = world.getEntities();

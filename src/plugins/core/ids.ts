@@ -20,7 +20,9 @@ export const updateEntityRevivalQueue: System = async world => {
   );
   if (!deletions.length) return;
 
-  const deadIDs = deletions.map(change => change.id);
+  const deadIDs = deletions
+    .filter(change => change.id !== undefined)
+    .map(change => change.id) as number[];
 
   const stack = world.getResource<Set<EntityID>>(
     ReservedKeys.ENTITY_REVIVAL_STACK
