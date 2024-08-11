@@ -1,5 +1,11 @@
 # @persephia/chaos-engine
 
+## 0.2.0
+
+### Minor Changes
+
+- 0c1e7ef: Breaking change to core API for SystemResults and SystemChanges
+
 ## 0.1.1
 
 ### Patch Changes
