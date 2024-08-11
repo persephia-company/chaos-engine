@@ -1,6 +1,10 @@
 import {Change, UpdateComponentChange} from '@/types/change';
 import {describe, it, expect} from 'vitest';
-import {extractChangeEntityId, incrementChangeOffset, replaceUnborn} from './change';
+import {
+  extractChangeEntityId,
+  incrementChangeOffset,
+  replaceUnborn,
+} from './change';
 import {ID} from '../entity';
 import {Entity, RealEntity} from '@/types/entity';
 
