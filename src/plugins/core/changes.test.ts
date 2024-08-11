@@ -1,8 +1,9 @@
 import {ReservedKeys, ReservedStages, World} from '@/lib/world';
 import {describe, expect, test} from 'vitest';
-import {SystemResults, Plugins, System, changeEventName} from '../..';
+import {Intention, Plugins, System, changeEventName} from '../..';
 import {logger} from '@/lib/logger';
 import {logNewRawChanges} from './debug';
+import {fixedID} from '@/lib/entity';
 
 const createWorld = () => {
   return new World()
@@ -28,23 +29,27 @@ const COMPONENT = 'TEST';
 const OTHER_COMPONENT = 'WOOO';
 
 const add: System = async (world: World) => {
-  return new SystemResults().addComponents(COMPONENT, VALUE, ID);
+  return new Intention().addComponent(COMPONENT, VALUE, fixedID(ID));
 };
 
 const addOther: System = async (world: World) => {
-  return new SystemResults().addComponents(OTHER_COMPONENT, VALUE, OTHER_ID);
+  return new Intention().addComponent(
+    OTHER_COMPONENT,
+    VALUE,
+    fixedID(OTHER_ID)
+  );
 };
 
 const setId: System = async (world: World) => {
-  return new SystemResults().setComponents(ReservedKeys.ID, ID, ID);
+  return new Intention().setComponent(ReservedKeys.ID, ID, fixedID(ID));
 };
 
 const delId: System = async (world: World) => {
-  return new SystemResults().deleteComponents(ReservedKeys.ID, [], ID);
+  return new Intention().deleteComponent(ReservedKeys.ID, fixedID(ID));
 };
 
 const delComponent: System = async (world: World) => {
-  return new SystemResults().deleteComponents(COMPONENT, [], ID);
+  return new Intention().deleteComponent(COMPONENT, fixedID(ID));
 };
 
 describe('Generation of ChangeEvents from RawChanges', () => {

@@ -63,45 +63,105 @@ describe('Test non-empty Component Storage', () => {
 
   test("Add works and doesn't overwrite", () => {
     let store = new SparseComponentStore<string>();
-    store = store.add([], 'hi', 1);
+
+    store = store.handleChange({
+      method: 'add',
+      path: ['components', 'any'],
+      value: 'hi',
+      id: 1,
+    });
     expectSingleComponentStore(store, 1, 'hi');
 
     // Shouldn't overwrite
-    store = store.add([], 'bye', 1);
+    store = store.handleChange({
+      method: 'add',
+      path: ['components', 'any'],
+      value: 'bye',
+      id: 1,
+    });
     expectSingleComponentStore(store, 1, 'hi');
   });
 
   test('Set works and overwrites', () => {
     let store = new SparseComponentStore<string>();
-    store = store.set([], 'hi', 1);
+    store = store.handleChange({
+      method: 'set',
+      path: ['components', 'any'],
+      value: 'hi',
+      id: 1,
+    });
     expectSingleComponentStore(store, 1, 'hi');
 
-    // Shouldn't overwrite
-    store = store.set([], 'bye', 1);
+    store = store.handleChange({
+      method: 'set',
+      path: ['components', 'any'],
+      value: 'bye',
+      id: 1,
+    });
     expectSingleComponentStore(store, 1, 'bye');
   });
 
   test('Delete works', () => {
     let store = new SparseComponentStore<string>();
-    store = store.add([], 'hi', 1);
+    store = store.handleChange({
+      method: 'add',
+      path: ['components', 'any'],
+      value: 'hi',
+      id: 1,
+    });
+
     expectSingleComponentStore(store, 1, 'hi');
 
     // Delete many
-    store = store.add([], ['this', 'is', 'nice'], [2, 3, 4]);
-    store = store.delete([], undefined, [2, 3, 4]);
+    const pairs = [
+      ['this', 2],
+      ['is', 3],
+      ['nice', 4],
+    ] as const;
+
+    for (const [value, id] of pairs) {
+      store = store.handleChange({
+        method: 'add',
+        path: ['components', 'any'],
+        value,
+        id,
+      });
+    }
+
+    for (const [_, id] of pairs) {
+      store = store.handleChange({
+        method: 'delete',
+        path: ['components', 'any'],
+        id,
+      });
+    }
 
     // Delete one
-    store = store.delete([], undefined, 1);
+    store = store.handleChange({
+      method: 'delete',
+      path: ['components', 'any'],
+      id: 1,
+    });
     expectEmptyStore(store);
   });
 
   test('Update works', () => {
     let store = new SparseComponentStore<string>();
-    store = store.add([], 'hi', 1);
+    store = store.handleChange({
+      method: 'add',
+      path: ['components', 'any'],
+      value: 'hi',
+      id: 1,
+    });
     expectSingleComponentStore(store, 1, 'hi');
 
     // Should overwrite
-    store = store.update([], text => text.toUpperCase(), 1);
+    store = store.handleChange({
+      method: 'update',
+      path: ['components', 'any'],
+      fn: text => text.toUpperCase(),
+      id: 1,
+    });
     expectSingleComponentStore(store, 1, 'HI');
   });
 });

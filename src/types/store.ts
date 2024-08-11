@@ -1,10 +1,12 @@
+import {EntityID} from './entity';
+
 export interface ComponentStore<T> {
-  hasEntity(id: number): boolean;
-  getComponent(id: number): T | undefined;
+  hasEntity(id: EntityID): boolean;
+  getComponent(id: EntityID): T | undefined;
   getComponents(): T[];
-  getItems(): [number, T][];
-  insert(id: number, component: T): ComponentStore<T>;
-  remove(id: number): ComponentStore<T>;
+  getItems(): [EntityID, T][];
+  insert(id: EntityID, component: T): ComponentStore<T>;
+  remove(id: EntityID): ComponentStore<T>;
   length(): number;
 }
 

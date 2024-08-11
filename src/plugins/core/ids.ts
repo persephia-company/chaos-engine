@@ -1,34 +1,40 @@
 import {logger} from '@/lib/logger';
-import {SystemResults, changeEventName} from '@/lib/system';
+import {Intention, changeEventName} from '@/lib/systems';
 import {wrap} from '@/lib/util';
 import {ReservedKeys, World} from '@/lib/world';
-import {Entity} from '@/types/entity';
-import {System, SystemChange} from '@/types/system';
+import {
+  AddComponentChange,
+  Change,
+  DeleteComponentChange,
+  SetComponentChange,
+} from '@/types/change';
+import {EntityID} from '@/types/entity';
+import {System} from '@/types/system';
 
 /**
  * Adds deleted entities to the revival queue to reclaim their id later.
  */
 export const updateEntityRevivalQueue: System = async world => {
-  const deletions = world.getEvents<SystemChange<Entity>>(
+  const deletions = world.getEvents<DeleteComponentChange<EntityID>>(
     changeEventName('delete', ReservedKeys.ID)
   );
   if (!deletions.length) return;
 
-  const deadIDs = deletions.flatMap(change => wrap(change.ids));
+  const deadIDs = deletions.map(change => change.id);
 
-  const stack = world.getResource<Set<Entity>>(
+  const stack = world.getResource<Set<EntityID>>(
     ReservedKeys.ENTITY_REVIVAL_STACK
   );
   if (stack === undefined) {
-    return new SystemResults().addResource(
+    return new Intention().addResource(
       ReservedKeys.ENTITY_REVIVAL_STACK,
       new Set(deadIDs)
     );
   }
 
-  return new SystemResults().updateResource(
+  return new Intention().updateResource(
     ReservedKeys.ENTITY_REVIVAL_STACK,
-    (stack: Set<Entity>) => {
+    (stack: Set<EntityID>) => {
       deadIDs.forEach(id => stack.add(id));
       return stack;
     }
@@ -36,14 +42,19 @@ export const updateEntityRevivalQueue: System = async world => {
 };
 
 const getCreatedIds = (world: World) => {
-  const addChanges = world.getEvents<SystemChange<Entity>>(
-    changeEventName('add', 'id')
-  );
-  const setChanges = world.getEvents<SystemChange<Entity>>(
-    changeEventName('set', 'id')
-  );
-  const changes = addChanges.concat(setChanges);
-  return changes.flatMap(change => wrap(change.value) as Entity[]);
+  const addIds = world
+    .getEvents<AddComponentChange<EntityID>>(
+      changeEventName('add', ReservedKeys.ID)
+    )
+    .map(change => change.value);
+
+  const setIds = world
+    .getEvents<SetComponentChange<EntityID>>(
+      changeEventName('set', ReservedKeys.ID)
+    )
+    .map(change => change.value);
+
+  return addIds.concat(setIds);
 };
 
 /**
@@ -56,9 +67,9 @@ export const reviveEntities: System = async world => {
   if (world.getResource(ReservedKeys.ENTITY_REVIVAL_STACK) === undefined)
     return;
 
-  return new SystemResults().updateResource(
+  return new Intention().updateResource(
     ReservedKeys.ENTITY_REVIVAL_STACK,
-    (stack: Set<Entity>) => {
+    (stack: Set<EntityID>) => {
       ids.forEach(id => stack.delete(id));
       return stack;
     }
@@ -83,7 +94,7 @@ export const updateMaxID: System = async world => {
     max,
     willUpdate: max > currentMax,
   });
-  let result = new SystemResults();
+  let result = new Intention();
 
   if (max > currentMax) {
     result = result.setResource(ReservedKeys.MAX_ID, max);

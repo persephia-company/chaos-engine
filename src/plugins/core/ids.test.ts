@@ -1,8 +1,9 @@
 import {ReservedKeys, ReservedStages, World} from '@/lib/world';
 import {describe, expect, test} from 'vitest';
-import {SystemResults, Plugins, System} from '../..';
+import {Intention, Plugins, System} from '../..';
 import {logger} from '@/lib/logger';
 import {logNewRawChanges} from './debug';
+import {fixedID} from '@/lib/entity';
 
 const createWorld = () => {
   return new World()
@@ -12,15 +13,15 @@ const createWorld = () => {
 
 const COMPONENT = 'TEST';
 const add: System = async (world: World) => {
-  return new SystemResults().addComponents(COMPONENT, 1);
+  return new Intention().addComponent(COMPONENT, 1);
 };
 
 const addToOne: System = async (world: World) => {
-  return new SystemResults().setComponents(COMPONENT, 1, 1);
+  return new Intention().setComponent(COMPONENT, 1, fixedID(1));
 };
 
 const del: System = async (world: World) => {
-  return new SystemResults().deleteComponents(ReservedKeys.ID, [], [0, 1]);
+  return new Intention().deleteComponents(ReservedKeys.ID, [0, 1].map(fixedID));
 };
 
 describe('Test id related plugins', () => {

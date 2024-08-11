@@ -1,6 +1,6 @@
 import {World, ReservedStages} from '@/lib/world';
 import {describe, expect, test} from 'vitest';
-import {SystemResults, Plugins, System} from '../..';
+import {Intention, Plugins, System} from '../..';
 import {debugPlugin} from '.';
 
 const createWorld = () => {
@@ -19,12 +19,12 @@ describe('Core plugins', () => {
 
     const sys1: System = async () => {
       count1 += 1;
-      return new SystemResults();
+      return new Intention();
     };
     const sys2: System = async () => {
       count2 += 1;
       rightOrder = count1 === 1;
-      return new SystemResults();
+      return new Intention();
     };
 
     const world = new World()

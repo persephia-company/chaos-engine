@@ -1,20 +1,21 @@
 import ComponentStore from '@/types/store';
-import {Updateable} from '@/types/updateable';
+import {
+  AddComponentChange,
+  ChangeType,
+  ComponentChange,
+  SetComponentChange,
+} from '@/types/change';
 
 import {take, zip} from 'ramda';
-import {wrap} from './util';
-import {ChangeType} from '@/types/system';
-import {createSystemChange} from './system';
 import {logger} from './logger';
+import {EntityID} from '@/types/entity';
 
 /**
  * An implementation of a SparseSet which also stores a component.
  *
  * Stores only one component per entity id.
  */
-export class SparseComponentStore<T>
-  implements Updateable<SparseComponentStore<T>, T>, ComponentStore<T>
-{
+export class SparseComponentStore<T> implements ComponentStore<T> {
   maxID: number;
   n: number;
   sparse: number[];
@@ -51,7 +52,7 @@ export class SparseComponentStore<T>
    *
    * @param id - The id of the entity to check for set membership.
    */
-  hasEntity(id: number): boolean {
+  hasEntity(id: EntityID): boolean {
     if (id > this.maxID) return false;
     return id === this.dense[this.sparse[id]];
   }
@@ -67,7 +68,7 @@ export class SparseComponentStore<T>
    * const store = new SparseComponentStore()
    * store.insert(1, "hello")
    */
-  insert(id: number, component: T): SparseComponentStore<T> {
+  insert(id: EntityID, component: T): SparseComponentStore<T> {
     if (this.hasEntity(id)) {
       this.components[this.indexOf(id)] = component;
       return this;
@@ -85,7 +86,7 @@ export class SparseComponentStore<T>
    *
    * @param id - The id of an entity
    */
-  getComponent(id: number): T | undefined {
+  getComponent(id: EntityID): T | undefined {
     return this.components[this.indexOf(id)];
   }
 
@@ -110,7 +111,7 @@ export class SparseComponentStore<T>
    *
    * @param id - The id of an entity to remove.
    */
-  remove(id: number): SparseComponentStore<T> {
+  remove(id: EntityID): SparseComponentStore<T> {
     if (!this.hasEntity(id)) return this;
     if (this.n === 1) {
       this.dense = [];
@@ -144,100 +145,43 @@ export class SparseComponentStore<T>
   }
 
   private _add(
-    method: 'add' | 'set',
-    path: string[],
-    values: T | T[],
-    ids?: number | number[],
+    change: AddComponentChange<T, EntityID> | SetComponentChange<T, EntityID>,
     overwrite = false
   ): SparseComponentStore<T> {
-    const change = createSystemChange(method, path, values, ids);
+    const {method, id, value} = change;
+
     const logChangeError = (msg: string) => this.logChangeError(method, msg);
-    if (path.length > 0) {
-      return logChangeError(
-        `Encountered unexpected path in component store: ${change}`
-      );
-    }
-    const idList = wrap(ids);
-    if (idList.length === 0) {
-      return logChangeError(`Missing ids from message: ${change}`);
+
+    if (id === undefined) {
+      return logChangeError(`Missing id from change: ${change}`);
     }
 
-    const vals = wrap(values);
-    if (idList.length !== vals.length) {
-      return logChangeError(
-        `Mismatched length of ids and values -> ${idList.length} != ${vals.length} in ${change}`
-      );
+    if (overwrite || !this.hasEntity(id)) {
+      this.insert(id, value);
     }
-
-    zip(idList, vals).forEach(([id, val]) => {
-      if (overwrite || !this.hasEntity(id)) {
-        this.insert(id, val);
-      }
-    });
 
     return this;
   }
 
-  // NOTE: The typing here is gross but has to be done to
-  // satisfy the interface. Makes me wonder...
-  add<U extends T>(
-    path: string[],
-    values: U | U[],
-    ids?: number | number[]
-  ): SparseComponentStore<T> {
-    return this._add('add', path, values, ids, false);
-  }
-
-  set<U extends T>(
-    path: string[],
-    values: U | U[],
-    ids?: number | number[]
-  ): SparseComponentStore<T> {
-    return this._add('set', path, values as T | T[], ids, true);
-  }
-
-  update<U extends T>(
-    path: string[],
-    f: (value: T) => U,
-    ids?: number | number[]
-  ): SparseComponentStore<T> {
-    const logChangeError = (msg: string) => this.logChangeError('update', msg);
-    if (path.length > 0) {
-      return logChangeError(
-        `Encountered unexpected path in component store: ${path}`
-      );
+  handleChange(change: ComponentChange<T, number>): SparseComponentStore<T> {
+    switch (change.method) {
+      case 'add':
+        return this._add(change);
+      case 'set':
+        return this._add(change, true);
+      case 'update':
+        if (change.id === undefined) {
+          this.components = this.components.map(change.fn);
+        } else {
+          const index = this.indexOf(change.id);
+          this.components[index] = change.fn(this.components[index]);
+        }
+        return this;
+      case 'delete':
+        if (change.id === undefined) {
+          return this.logChangeError('delete', 'Missing entity id');
+        }
+        return this.remove(change.id);
     }
-    const idList = wrap(ids);
-    if (!idList.length) {
-      this.components = this.components.map(f);
-      return this;
-    }
-
-    idList.forEach(id => {
-      const index = this.indexOf(id);
-      this.components[index] = f(this.components[index]);
-    });
-    return this;
-  }
-
-  delete(
-    path: string[],
-    values?: string | string[],
-    ids?: number | number[]
-  ): SparseComponentStore<T> {
-    const logChangeError = (msg: string) => this.logChangeError('delete', msg);
-    if (path.length > 0) {
-      return logChangeError(
-        `Encountered unexpected path in component store: ${path}`
-      );
-    }
-    if (wrap(values).length > 0) {
-      return logChangeError(
-        `Encountered unexpected values in message: ${values}`
-      );
-    }
-
-    wrap(ids).forEach(id => this.remove(id));
-    return this;
   }
 }

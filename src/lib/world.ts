@@ -1,23 +1,21 @@
-import {Entity} from '@/types/entity';
 import {ComponentStore} from '@/types/store';
-import {System, SystemChange} from '@/types/system';
-import {Updateable} from '@/types/updateable';
+import {System} from '@/types/system';
 import {WorldAPI, WorldStore} from '@/types/world';
 import {Queue} from '@datastructures-js/queue';
 import {DepGraph} from 'dependency-graph';
 import stringify from 'json-stable-stringify';
 import * as R from 'ramda';
 import {SparseComponentStore} from './store';
-import {SystemResults, createSystemChange} from './system';
 import {
-  groupBy,
-  hash_cyrb53,
-  objAssoc,
-  objDelete,
-  objUpdate,
-  wrap,
-} from './util';
+  Intention,
+  extractChangeEntityId,
+  isComponentChange,
+  isResourceChange,
+} from './systems';
+import {groupBy, hash_cyrb53, objAssoc, objDelete, objUpdate} from './util';
 import {logger} from './logger';
+import {Change, ComponentChange, ResourceChange} from '@/types/change';
+import {EntityID} from '..';
 
 export const COMPONENTS = 'components';
 export const RESOURCES = 'resources';
@@ -52,7 +50,7 @@ export const ReservedStages = {
   TEAR_DOWN: 'tear-down',
 } as const;
 
-export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
+export class World implements WorldStore, WorldAPI<World> {
   components: Record<string, ComponentStore<unknown>>;
   events: Record<string, unknown[]>;
   resources: Record<string, unknown>;
@@ -66,36 +64,41 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   /**
    * Returns all entities within the world.
    */
-  getEntities(): Entity[] {
-    return this.getComponentStore<Entity>(ReservedKeys.ID).getComponents();
+  getEntities(): number[] {
+    return this.getComponentStore<number>(ReservedKeys.ID).getComponents();
   }
 
-  createEntity(): Entity {
+  /**
+   * Returns the id of the next entity to be created.
+   *
+   * Note: Doesn't actually create the entity.
+   */
+  createEntity(): number {
     return this.createEntities(1)[0];
   }
 
-  createEntities(n: number): Entity[] {
-    const revivalStack: Set<Entity> = this.getResourceOr(
+  createEntities(n: number): number[] {
+    const revivalStack: Set<number> = this.getResourceOr(
       new Set(),
       ReservedKeys.ENTITY_REVIVAL_STACK
     );
-    const maxEntity: Entity = this.getResourceOr(-1, ReservedKeys.MAX_ID);
-    // Pull first from revival stack
-    //
+    const maxEntity: number = this.getResourceOr(-1, ReservedKeys.MAX_ID);
+
+    // Pull from revival stack, first
     const toRevive = R.take(n, Array.from(revivalStack));
     const toCreate = R.times(i => maxEntity + 1 + i, n - toRevive.length);
 
     return toRevive.concat(toCreate);
   }
 
-  deleteEntity(id: Entity) {
+  deleteEntity(id: EntityID) {
     for (const store of Object.values(this.components)) {
       store.remove(id);
     }
     return this;
   }
 
-  deleteEntities(ids: Entity[]) {
+  deleteEntities(ids: EntityID[]) {
     for (const store of Object.values(this.components)) {
       for (const id of ids) {
         store.remove(id);
@@ -107,7 +110,7 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
   /**
    * Gets the name of all components the supplied entity is a part of.
    */
-  getComponentsForEntity(id: Entity): string[] {
+  getComponentsForEntity(id: EntityID): string[] {
     return Object.entries(this.components)
       .filter(([_, store]) => store.hasEntity(id))
       .map(([name, _]) => name);
@@ -334,14 +337,14 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     // TODO: make more efficient
     const systemResults = rawResults.filter(
       result => result !== undefined
-    ) as SystemResults[];
+    ) as Intention[];
 
     const finalResult = systemResults.reduce(
       (res, next) => res.merge(next),
-      new SystemResults()
+      new Intention()
     );
 
-    return this.applySystemResults(finalResult);
+    return this.applyIntention(finalResult);
   }
 
   applyStage = async (stage: string): Promise<void> => {
@@ -349,8 +352,11 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     if (!systems) return;
 
     // Update the stage
-    // NOTE: not sure if it's best idea to have this call through the api
-    let world = this.set<string>(['resources', ReservedKeys.STAGE], stage);
+    let world = this.applyChange<string>({
+      path: ['resources', ReservedKeys.STAGE],
+      method: 'set',
+      value: stage,
+    });
 
     // Check if system dependency graph is up to date
     // Rebuild if needed
@@ -366,6 +372,10 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
       ReservedKeys.SYSTEM_BATCHES
     ) as Record<string, System[][]>;
 
+    /**
+     * Helper function that ensures pre_batch and post_batch stages are run
+     * around each batch in the supplied stage.
+     */
     const _applyStage = async (_stage: string, world: World) => {
       const batches = stageBatches[_stage];
       if (!batches) return world;
@@ -399,48 +409,97 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     await _applyStage(ReservedStages.POST_STAGE, world);
   };
 
-  applySystem = async (system: System): Promise<SystemResults | void> => {
+  applySystem = async (system: System): Promise<Intention | void> => {
     logger.debug({msg: `applySystem: ${system.name}`, system: system.name});
     return await system(this);
+  };
+
+  /**
+   * Replaces all the relative ids in the supplied results with fixed ids from
+   * the world.
+   */
+  private fixIntentionIds = (results: Intention): void => {
+    const offsets = Array.from(results.getUsedOffsets().values());
+    const newIds = this.createEntities(offsets.length);
+
+    offsets.forEach((offset, i) => {
+      results.replaceAllUnborn(offset, newIds[i]);
+    });
   };
 
   /**
    * Applies a set of changes contained in some SystemResults, one by one, to
    * the world.
    */
-  applySystemResults = (results: SystemResults): World => {
+  applyIntention = (intention: Intention): World => {
     // NOTE: We could eventually make it so that all this does is add the raw results to the event queue.
     // Then all the remaining behaviour could be accomplished with systems...
-    logger.debug({msg: 'applySystemResults', results});
+    logger.debug({msg: 'applySystemResults', intention});
 
-    const applyChange = (world: World, change: SystemChange<any>): World => {
-      // NOTE: Wrap with ids before we add the RAW event.
-      if (
-        change.method === 'add' &&
-        change.path[0] === COMPONENTS &&
-        !wrap(change.ids).length
-      ) {
-        change.ids = world.createEntities(wrap(change.value).length);
-      }
-      return world
-        .add([EVENTS, ReservedKeys.RAW_CHANGES], change)
-        .applySystemChange(change);
-    };
-    return R.reduce(applyChange, this, results.changes);
+    this.fixIntentionIds(intention);
+
+    let result = this as World;
+    for (const change of intention.extractRealChanges()) {
+      result = result.applyChange(extractChangeEntityId(change));
+    }
+    return result;
   };
 
-  private applySystemChange = (change: SystemChange<any>): World => {
+  applyChange = <T>(change: Change<T, EntityID>): World => {
+    // Add the raw change to the events
+    const result = this.addEvent(ReservedKeys.RAW_CHANGES, change);
+
+    // Process the change
+    if (isComponentChange(change)) {
+      return result.forwardToComponents(change);
+    }
+    if (isResourceChange(change)) {
+      return result.applyResourceChange(change);
+    }
+
+    // Change must be an event
+    const eventName = change.path[1];
+
+    if (change.method === 'delete') {
+      return this.resetEvents(eventName);
+    }
+
+    return this.addEvent(eventName, change.value);
+  };
+
+  private addEvent<T>(eventName: string, value: T) {
+    const events = this.getEvents(eventName);
+    events.push(value);
+
+    this.events[eventName] = events;
+    return this;
+  }
+
+  private resetEvents(eventName: string) {
+    this.events[eventName] = [];
+    return this;
+  }
+
+  private applyResourceChange<T>(change: ResourceChange<T>): World {
+    const resourceName = change.path[1];
     switch (change.method) {
       case 'add':
-        return this.add(change.path, change.value, change.ids);
-      case 'delete':
-        return this.delete(change.path, change.value, change.ids);
+        if (this.resources[resourceName] !== undefined) {
+          return this;
+        }
+        objAssoc(change.path, change.value, this);
+        return this;
       case 'set':
-        return this.set(change.path, change.value, change.ids);
+        objAssoc(change.path, change.value, this);
+        return this;
       case 'update':
-        return this.update(change.path, change.value, change.ids);
+        objUpdate(change.path, change.fn, this);
+        return this;
+      case 'delete':
+        objDelete(change.path, [], this);
+        return this;
     }
-  };
+  }
 
   private buildStageDependencyGraph = () => {
     const stages = Object.keys(this.getSystems());
@@ -504,18 +563,13 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     return this.updateComponentStore(key, () => store);
   }
 
-  forwardToComponents<T>(change: SystemChange<T>): World {
-    const {method, path, value} = change;
-
-    const ids = wrap(change.ids);
-
-    logger.debug({msg: 'forwarding to components', change, ids});
+  forwardToComponents<T>(change: ComponentChange<T, EntityID>): World {
+    const {method, path} = change;
+    logger.debug({msg: 'forwarding to components', change});
 
     // Call the appropriate method on the store
     const component = path[1];
-    const remainingPath = R.drop(2, path);
-    let store = this.getComponentStore(component);
-    store = store[method](remainingPath, value as any, ids);
+    const store = this.getComponentStore<T>(component).handleChange(change);
 
     const result = this.setComponentStore(component, store);
 
@@ -523,91 +577,15 @@ export class World implements WorldStore, WorldAPI<World>, Updateable<World> {
     if (component === ReservedKeys.ID) return result;
 
     // Otherwise, might need to also create the appropriate ids
-    let idStore = this.getComponentStore<Entity>(ReservedKeys.ID);
+    let idStore = this.getComponentStore<number>(ReservedKeys.ID);
     if (method === 'add' || method === 'set') {
-      for (const id of ids) {
-        idStore = idStore.insert(id, id);
+      if (change.id !== undefined) {
+        idStore = idStore.insert(change.id, change.id);
       }
     }
 
     // Update our worlds stores to reflect our changes
     return result.setComponentStore(ReservedKeys.ID, idStore);
-  }
-
-  add<T>(path: string[], values: T | T[], ids?: number | number[]): World {
-    if (path[0] === 'components') {
-      // Add Entity IDs if not specified.
-      if (wrap(ids).length === 0) {
-        ids = this.createEntities(wrap(values).length);
-        logger.debug({
-          msg: 'No ids found for World.add, adding our own...',
-          path,
-          values,
-          ids,
-        });
-      }
-      // TODO: check validity
-      const change = createSystemChange('add', path, values, ids);
-      return this.forwardToComponents(change);
-    }
-
-    if (path[0] === 'events') {
-      const event = path[1];
-      let events = this.getEvents(event);
-      events = events.concat(wrap(values));
-      // TODO: Could just make imperative
-      objAssoc(['events', event], events, this);
-      return this;
-    }
-
-    // Otherwise check we don't overwrite anything
-    if (R.path(path, this) === undefined) {
-      objAssoc(path, values, this);
-    }
-
-    return this;
-  }
-
-  set<T>(path: string[], values: T | T[], ids?: number | number[]): World {
-    // TODO: check validity
-    if (path[0] === COMPONENTS) {
-      return this.forwardToComponents(
-        createSystemChange<T>('set', path, values, ids)
-      );
-    }
-    objAssoc(path, values, this);
-    return this;
-  }
-
-  delete(
-    path: string[],
-    values?: string | string[],
-    ids?: number | number[]
-  ): World {
-    // TODO: check validity
-    if (path[0] !== COMPONENTS) {
-      objDelete(path, wrap(values), this);
-      return this;
-    }
-
-    return this.forwardToComponents(
-      createSystemChange('delete', path, values, ids) as SystemChange<unknown>
-    );
-  }
-
-  update<T>(
-    path: string[],
-    f: (value: T) => T,
-    ids?: number | number[]
-  ): World {
-    // TODO: check validity
-    if (path[0] === COMPONENTS) {
-      return this.forwardToComponents(
-        createSystemChange('update', path, f, ids)
-      );
-    }
-    objUpdate(path, f, this);
-    return this;
   }
 }
 

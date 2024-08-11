@@ -1,7 +1,7 @@
 import {ReservedKeys, World} from './world';
 import {range} from 'ramda';
 import {describe, expect, test} from 'vitest';
-import {SystemResults, Plugins, System} from '..';
+import {Intention, Plugins, System} from '..';
 import {ReservedStages} from '@/lib/world';
 
 const createWorld = () => {
@@ -45,8 +45,8 @@ describe('New Id checks', () => {
 });
 
 describe('System Tests', () => {
-  const sys1 = async (world: World) => new SystemResults();
-  const sys2 = async (world: World) => new SystemResults();
+  const sys1 = async (world: World) => new Intention();
+  const sys2 = async (world: World) => new Intention();
 
   test('Can add systems correctly', () => {
     let world = createWorld();
@@ -89,7 +89,12 @@ describe('API Tests', () => {
   test('Add component', () => {
     let world = createWorld();
     const component = 'test';
-    world = world.add(['components', component], 'hi', 1);
+    world = world.applyChange({
+      method: 'add',
+      path: ['components', component],
+      value: 'hi',
+      id: 1,
+    });
     const store = world.getComponentStore<string>(component);
     const ids = world.getEntities();
     expect(store.hasEntity(1), 'Entity with id of 1 is missing').toBe(true);
@@ -101,7 +106,20 @@ describe('API Tests', () => {
   test('Add multiple components', () => {
     let world = createWorld();
     const component = 'test';
-    world = world.add(['components', component], ['hi', 'there'], [0, 1]);
+
+    world = world.applyChange({
+      method: 'add',
+      path: ['components', component],
+      value: 'hi',
+      id: 0,
+    });
+
+    world = world.applyChange({
+      method: 'add',
+      path: ['components', component],
+      value: 'there',
+      id: 1,
+    });
     const store = world.getComponentStore<string>(component);
     const ids = world.getEntities();
     expect(store.hasEntity(0), 'Entity with id of 0 is missing').toBe(true);
@@ -116,7 +134,11 @@ describe('API Tests', () => {
   test('Add component without ids', () => {
     let world = createWorld();
     const component = 'test';
-    world = world.add(['components', component], 'hi');
+    world = world.applyChange({
+      method: 'add',
+      path: ['components', component],
+      value: 'hi',
+    });
     const store = world.getComponentStore<string>(component);
     const ids = world.getEntities();
     expect(store.hasEntity(0), 'Entity with id of 0 is missing').toBe(true);
@@ -128,7 +150,16 @@ describe('API Tests', () => {
   test('Add multiple components without ids', () => {
     let world = createWorld();
     const component = 'test';
-    world = world.add(['components', component], ['hi', 'there']);
+    world = world.applyChange({
+      method: 'add',
+      path: ['components', component],
+      value: 'hi',
+    });
+    world = world.applyChange({
+      method: 'add',
+      path: ['components', component],
+      value: 'there',
+    });
     const store = world.getComponentStore<string>(component);
     const ids = world.getEntities();
     expect(store.hasEntity(0), 'Entity with id of 0 is missing').toBe(true);
@@ -143,7 +174,11 @@ describe('API Tests', () => {
   test('Add event', () => {
     let world = createWorld();
     const eventName = 'tick';
-    world = world.add(['events', eventName], 'hi');
+    world = world.applyChange({
+      method: 'add',
+      path: ['events', eventName],
+      value: 'hi',
+    });
     const events = world.getEvents<string>(eventName);
     expect(events.length, 'Expected a single tick event').toBe(1);
     expect(events[0]).toBe('hi');
@@ -169,12 +204,12 @@ describe('Running The Game', () => {
 
     const sys1: System = async () => {
       count1 += 1;
-      return new SystemResults();
+      return new Intention();
     };
     const sys2: System = async () => {
       count2 += 1;
       rightOrder = count1 === 1;
-      return new SystemResults();
+      return new Intention();
     };
 
     const world = new World()
@@ -192,7 +227,7 @@ describe('Running The Game', () => {
 
   test('Resources specified by system should be available to future systems', async () => {
     const setRes: System = async () => {
-      return new SystemResults().setResource('X', 1);
+      return new Intention().setResource('X', 1);
     };
     const otherSystem: System = async world => {
       expect(world.getResource('X')).toBe(1);

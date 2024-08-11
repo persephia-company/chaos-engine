@@ -1,18 +1,8 @@
-import {SystemResults} from '@/lib/system';
+import {Intention} from '@/lib/systems';
 import {World} from '@/lib/world';
-import {Entity} from './entity';
 
 // TODO: Make result optional
-export type System = (world: World) => Promise<SystemResults | void>;
-
-export type ChangeType = 'add' | 'delete' | 'set' | 'update';
-
-export type SystemChange<T = any> = {
-  method: ChangeType;
-  path: string[];
-  value?: T | T[] | ((v: T) => T) | string | string[];
-  ids?: Entity | Entity[];
-};
+export type System = (world: World) => Promise<Intention | void>;
 
 export type QueryOptions = {};
 
@@ -33,4 +23,4 @@ export type QueryResponse<T extends any[]> = {
 
 export type QueryHandler<T extends any[]> = (
   request: QueryResponse<T>
-) => SystemResults;
+) => Intention;

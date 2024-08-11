@@ -1,10 +1,9 @@
-import {SystemResults} from '@/lib/system';
+import {Intention} from '@/lib/systems';
 import {EVENTS, World} from '@/lib/world';
 import {ReservedStages} from '@/lib/world';
 import {reviveEntities, updateEntityRevivalQueue, updateMaxID} from './ids';
 import {
   addChangeEvents,
-  addCreatedEvents,
   addModifiedEvents,
   entityDeletionCleanup,
   executeEntities,
@@ -26,9 +25,6 @@ export const corePlugin = (world: World): World => {
 
       // System changes
       .addSystem(addChangeEvents, ReservedStages.POST_BATCH)
-
-      .addSystem(addCreatedEvents, ReservedStages.POST_BATCH)
-      .addSystemDependency(addCreatedEvents, addChangeEvents)
 
       .addSystem(addModifiedEvents, ReservedStages.POST_BATCH)
       .addSystemDependency(addModifiedEvents, addChangeEvents)
@@ -61,4 +57,6 @@ export const debugPlugin = (world: World): World => {
 /**
  * Deletes all events from the world. Designed to be called at the end of each step.
  */
-const resetEvents: System = async () => new SystemResults().set([EVENTS], {});
+const resetEvents: System = async world => {
+  world.events = {};
+};

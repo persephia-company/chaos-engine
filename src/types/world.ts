@@ -1,5 +1,4 @@
-import {SystemResults} from '..';
-import {Entity} from './entity';
+import {Intention} from '@/lib/systems';
 import ComponentStore from './store';
 import {System} from './system';
 
@@ -10,8 +9,6 @@ export type WorldStore = {
 };
 
 export interface WorldAPI<A> {
-  createEntity: () => Entity;
-  createEntities: (n: number) => Entity[];
   getResourceOr: <T>(or: T, key: string) => T;
   getResource: <T>(key: string) => T | undefined;
   setResource: <T>(key: string, value: T) => void;
@@ -24,8 +21,8 @@ export interface WorldAPI<A> {
   addPlugin: (plugin: (world: A) => A) => A;
   query: <T extends any[]>(components: string[]) => T[];
   applyStage: (stage: string) => Promise<void>;
-  applySystem: (system: System) => Promise<SystemResults | void>;
-  applySystemResults: (results: SystemResults) => void;
+  applySystem: (system: System) => Promise<Intention | void>;
+  applyIntention: (intention: Intention) => void;
   stepN: (n: number) => Promise<void>;
   step: () => Promise<void>;
   play: () => Promise<void>;
