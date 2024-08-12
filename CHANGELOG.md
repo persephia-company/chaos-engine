@@ -1,5 +1,11 @@
 # @persephia/chaos-engine
 
+## 0.2.1
+
+### Patch Changes
+
+- a7376ad: Add exports for /lib/entity
+
 ## 0.2.0
 
 ### Minor Changes
