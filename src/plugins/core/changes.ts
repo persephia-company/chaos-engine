@@ -21,7 +21,7 @@ import {
   EventChange,
   SetComponentChange,
 } from '@/types/change';
-import {ID, fixedID} from '@/lib/entity';
+import {ID, realID} from '@/lib/entity';
 
 const createChangeEvent = (rawChange: Change<any>): EventChange<Change> => {
   const key = rawChange.path[1];

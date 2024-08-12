@@ -1,6 +1,6 @@
 import {AddComponentChange, Change} from '@/types/change';
 import {Entity, RealEntity, UnbornEntity} from '@/types/entity';
-import {isFixed, isUnborn} from '../entity';
+import {isReal, isUnborn} from '../entity';
 import {
   incrementChangeOffset,
   isComponentChange,
@@ -112,7 +112,7 @@ export class Intention {
       if (!isComponentChange(change) || change.id === undefined) {
         return true;
       }
-      return isFixed(change.id);
+      return isReal(change.id);
     }) as Change<any, RealEntity>[];
   }
 

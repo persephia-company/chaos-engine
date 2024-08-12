@@ -3,7 +3,7 @@ import {range} from 'ramda';
 import {describe, expect, test} from 'vitest';
 import {Intention, Plugins, System, logger} from '..';
 import {ReservedStages} from '@/lib/world';
-import {fixedID} from './entity';
+import {realID} from './entity';
 
 const createWorld = () => {
   return new World().addPlugin(Plugins.corePlugin);
@@ -50,7 +50,7 @@ describe('System Tests', () => {
   const sys2 = async (world: World) => new Intention();
 
   const addComponentWithFixedId = () =>
-    new Intention().addComponent('test', 1, fixedID(10));
+    new Intention().addComponent('test', 1, realID(10));
 
   const addComponentWithoutId = () => new Intention().addComponent('test', 2);
 

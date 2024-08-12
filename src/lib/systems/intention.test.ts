@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
 import {Intention} from './intention';
-import {ID, fixedID, hasID, hasOffset} from '../entity';
+import {ID, realID, hasRealIdOfValue, hasOffset} from '../entity';
 import {isComponentChange} from './change';
 import {UnbornEntity} from '@/types/entity';
 
@@ -61,7 +61,7 @@ describe('Intentions', () => {
       intention.changes.every(change => {
         if (!isComponentChange(change)) return true;
         if (change.id === undefined) return true;
-        return hasID(change.id, 69);
+        return hasRealIdOfValue(change.id, 69);
       })
     ).true;
   });
@@ -128,11 +128,11 @@ describe('Intentions', () => {
       hp: 10,
       armor: 'heavy',
     };
-    const intention = new Intention().addBundle(bundle, fixedID(1));
+    const intention = new Intention().addBundle(bundle, realID(1));
     expect(intention.changes.length).toBe(2);
     expect(
       intention.changes.every(change => {
-        return isComponentChange(change) && hasID(change.id!, 1);
+        return isComponentChange(change) && hasRealIdOfValue(change.id!, 1);
       })
     ).true;
   });

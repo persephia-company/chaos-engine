@@ -6,7 +6,7 @@ import {
   ResourceChange,
 } from '@/types/change';
 import {Entity, EntityID, RealEntity} from '@/types/entity';
-import {ID, fixedID, hasOffset, isFixed} from '../entity';
+import {ID, realID, hasOffset, isReal} from '../entity';
 
 export const CHANGE_EVENT_DIVIDER = '-->';
 
@@ -63,7 +63,7 @@ export const incrementChangeOffset = <T>(
 ): Change<T, Entity> => {
   if (!isComponentChange(change)) return change;
 
-  if (change.id === undefined || isFixed(change.id)) {
+  if (change.id === undefined || isReal(change.id)) {
     return change;
   }
   const id = ID.relative(change.id.offset + amount);
@@ -97,7 +97,7 @@ export const replaceUnborn = <T>(
   if (
     !isComponentChange(change) ||
     change.id === undefined ||
-    isFixed(change.id)
+    isReal(change.id)
   ) {
     return change;
   }
@@ -106,5 +106,5 @@ export const replaceUnborn = <T>(
     return change;
   }
 
-  return {...change, id: fixedID(id)};
+  return {...change, id: realID(id)};
 };
