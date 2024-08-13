@@ -1,5 +1,18 @@
 # @persephia/chaos-engine
 
+## 0.2.2
+
+### Patch Changes
+
+- 7e5ee4d: QOL Changes
+
+  - process.env isn't required to be available for logging.
+  - Adding bundles doesn't screw up the world.
+  - Add extra method on Intention to differentiate between
+    updating one component id and updating all components
+
+- e90b3c8: Allow for pinot logger to run without explicit dependency on process.env (for vite environments)
+
 ## 0.2.1
 
 ### Patch Changes
