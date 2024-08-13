@@ -183,7 +183,7 @@ export class Intention {
     return result;
   }
 
-  deleteComponent(componentName: string, id: Entity) {
+  deleteComponent(componentName: string, id: RealEntity) {
     return this.addChange({
       method: 'delete',
       path: ['components', componentName],
@@ -191,7 +191,7 @@ export class Intention {
     });
   }
 
-  deleteComponents(componentName: string, ids: Entity[]) {
+  deleteComponents(componentName: string, ids: RealEntity[]) {
     let result: Intention = this as Intention;
     for (const id of ids) {
       result = result.deleteComponent(componentName, id);
@@ -209,7 +209,7 @@ export class Intention {
   updateComponent<T>(
     componentName: string,
     fn: (value: T) => T,
-    id: Entity
+    id: RealEntity
   ): Intention {
     return this.addChange({
       method: 'update',
@@ -222,7 +222,7 @@ export class Intention {
   updateComponents<T>(
     componentName: string,
     fn: (value: T) => T,
-    ids?: Entity[]
+    ids?: RealEntity[]
   ): Intention {
     if (ids === undefined) {
       return this.addChange({

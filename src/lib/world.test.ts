@@ -1,9 +1,9 @@
 import {ReservedKeys, World} from './world';
 import {range} from 'ramda';
 import {describe, expect, test} from 'vitest';
-import {Intention, Plugins, System, logger} from '..';
+import {Entity, Intention, Plugins, RealEntity, System, logger} from '..';
 import {ReservedStages} from '@/lib/world';
-import {realID} from './entity';
+import {ID, realID} from './entity';
 
 const createWorld = () => {
   return new World().addPlugin(Plugins.corePlugin);
@@ -49,17 +49,6 @@ describe('System Tests', () => {
   const sys1 = async (world: World) => new Intention();
   const sys2 = async (world: World) => new Intention();
 
-  const addComponentWithFixedId = () =>
-    new Intention().addComponent('test', 1, realID(10));
-
-  const addComponentWithoutId = () => new Intention().addComponent('test', 2);
-
-  const addComponentWithUnbornId = () => {
-    const intention = new Intention();
-    const id = intention.createID();
-    return intention.addComponent('test', 3, id);
-  };
-
   test('Can add systems correctly', () => {
     let world = createWorld();
     world = world.addSystem(sys1);
@@ -95,7 +84,19 @@ describe('System Tests', () => {
   test('Adding system dependencies without adding the systems does nothing', () => {
     // TODO:
   });
+});
 
+describe('Intentions', () => {
+  const addComponentWithFixedId = () =>
+    new Intention().addComponent('test', 1, realID(10));
+
+  const addComponentWithoutId = () => new Intention().addComponent('test', 2);
+
+  const addComponentWithUnbornId = () => {
+    const intention = new Intention();
+    const id = intention.createID();
+    return intention.addComponent('test', 3, id);
+  };
   test('Applying intentions should reflect their changes in the world.', async () => {
     const world = createWorld().applyIntention(addComponentWithFixedId());
     const store = world.components['test'];
@@ -140,7 +141,7 @@ describe('System Tests', () => {
   });
 });
 
-describe('API Tests', () => {
+describe('applyChange', () => {
   test('Add component', () => {
     let world = createWorld();
     const component = 'test';
@@ -198,6 +199,277 @@ describe('API Tests', () => {
     expect(events.length, 'Expected a single tick event').toBe(1);
     expect(events[0]).toBe('hi');
     expect(satisfiesInvariant(world)).true;
+  });
+});
+
+describe('Test running basic systems of all intention API types', () => {
+  const TEST_COMPONENT = 'test';
+  const TEST_VALUE = 1;
+  const TEST_VALUES = [1, 2];
+
+  const REAL_ID = ID.real(1);
+  const REAL_IDS = [10, 11].map(ID.real);
+  const UNBORN_ID = ID.unborn(69);
+  const UNBORN_IDS = [69, 420].map(ID.unborn);
+
+  const stepWorldWith = async (system: System) => {
+    const world = createWorld().addSystem(system);
+    await world.step();
+    return world;
+  };
+
+  const addComponent =
+    <T>(value: T, id?: Entity): System =>
+    async () =>
+      new Intention().addComponent(TEST_COMPONENT, value, id);
+
+  const addComponents =
+    <T>(values: T[], ids?: Entity[]): System =>
+    async () =>
+      new Intention().addComponents(TEST_COMPONENT, values, ids);
+
+  const setComponent =
+    <T>(value: T, id: Entity): System =>
+    async () =>
+      new Intention().setComponent(TEST_COMPONENT, value, id);
+
+  const setComponents =
+    <T>(values: T[], ids: Entity[]): System =>
+    async () =>
+      new Intention().setComponents(TEST_COMPONENT, values, ids);
+
+  const updateComponent =
+    <T>(fn: (item: T) => T, id: RealEntity): System =>
+    async () =>
+      new Intention()
+        .addComponents(TEST_COMPONENT, TEST_VALUES, REAL_IDS)
+        .updateComponent(TEST_COMPONENT, fn, id);
+
+  const updateComponents =
+    <T>(fn: (item: T) => T, ids?: RealEntity[]): System =>
+    async () =>
+      new Intention()
+        .addComponents(TEST_COMPONENT, TEST_VALUES, REAL_IDS)
+        .updateComponents(TEST_COMPONENT, fn, ids);
+
+  const deleteComponent =
+    (id: RealEntity): System =>
+    async () =>
+      new Intention()
+        .addComponents(TEST_COMPONENT, TEST_VALUES, REAL_IDS)
+        .deleteComponent(TEST_COMPONENT, id);
+
+  const deleteComponents =
+    (ids: RealEntity[]): System =>
+    async () =>
+      new Intention()
+        .addComponents(TEST_COMPONENT, TEST_VALUES, REAL_IDS)
+        .deleteComponents(TEST_COMPONENT, ids);
+
+  const deleteAllComponents = (): System => async () =>
+    new Intention()
+      .addComponents(TEST_COMPONENT, TEST_VALUES, REAL_IDS)
+      .deleteAllComponentsOfName(TEST_COMPONENT);
+
+  test('AddComponent with real ID', async () => {
+    const world = await stepWorldWith(addComponent(TEST_VALUE, REAL_ID));
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(1);
+    const component = store.getComponent(REAL_ID.id);
+    expect(component).toBe(TEST_VALUE);
+  });
+
+  test('AddComponent with unborn ID', async () => {
+    const world = await stepWorldWith(addComponent(TEST_VALUE, UNBORN_ID));
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(1);
+    const component = store.getComponent(0);
+    expect(component).toBe(TEST_VALUE);
+  });
+
+  test('AddComponent with missing ID', async () => {
+    const world = await stepWorldWith(addComponent(TEST_VALUE));
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(1);
+    const component = store.getComponent(0);
+    expect(component).toBe(TEST_VALUE);
+  });
+
+  test('AddComponents with real IDs', async () => {
+    const world = await stepWorldWith(addComponents(TEST_VALUES, REAL_IDS));
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(2);
+    for (let i = 0; i < 2; i++) {
+      const component = store.getComponent(REAL_IDS[i].id);
+      expect(component).toBe(TEST_VALUES[i]);
+    }
+  });
+
+  test('AddComponents with unborn IDs', async () => {
+    const world = await stepWorldWith(addComponents(TEST_VALUES, UNBORN_IDS));
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(2);
+    for (let i = 0; i < 2; i++) {
+      const component = store.getComponent(i);
+      expect(component).toBe(TEST_VALUES[i]);
+    }
+  });
+
+  test('AddComponents with missing IDs', async () => {
+    const world = await stepWorldWith(addComponents(TEST_VALUES));
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(2);
+    for (let i = 0; i < 2; i++) {
+      const component = store.getComponent(i);
+      expect(component).toBe(TEST_VALUES[i]);
+    }
+  });
+
+  test('AddComponents with mixed IDs', async () => {
+    const world = await stepWorldWith(
+      addComponents(
+        [...TEST_VALUES, ...TEST_VALUES],
+        [...REAL_IDS, ...UNBORN_IDS]
+      )
+    );
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(4);
+    for (let i = 0; i < 2; i++) {
+      const component = store.getComponent(REAL_IDS[i].id);
+      expect(component).toBe(TEST_VALUES[i]);
+    }
+
+    for (let i = 0; i < 2; i++) {
+      const component = store.getComponent(i);
+      expect(component).toBe(TEST_VALUES[i]);
+    }
+  });
+
+  test('SetComponent with real ID', async () => {
+    const world = await stepWorldWith(setComponent(TEST_VALUE, REAL_ID));
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(1);
+    const component = store.getComponent(REAL_ID.id);
+    expect(component).toBe(TEST_VALUE);
+  });
+
+  test('SetComponent with unborn ID', async () => {
+    const world = await stepWorldWith(setComponent(TEST_VALUE, UNBORN_ID));
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(1);
+    const component = store.getComponent(0);
+    expect(component).toBe(TEST_VALUE);
+  });
+
+  test('Setcomponents with real ids', async () => {
+    const world = await stepWorldWith(setComponents(TEST_VALUES, REAL_IDS));
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(2);
+    for (let i = 0; i < 2; i++) {
+      const component = store.getComponent(REAL_IDS[i].id);
+      expect(component).toBe(TEST_VALUES[i]);
+    }
+  });
+
+  test('SetComponents with unborn ids', async () => {
+    const world = await stepWorldWith(setComponents(TEST_VALUES, UNBORN_IDS));
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(2);
+    for (let i = 0; i < 2; i++) {
+      const component = store.getComponent(i);
+      expect(component).toBe(TEST_VALUES[i]);
+    }
+  });
+
+  test('SetComponents with mixed IDs', async () => {
+    const world = await stepWorldWith(
+      setComponents(
+        [...TEST_VALUES, ...TEST_VALUES],
+        [...REAL_IDS, ...UNBORN_IDS]
+      )
+    );
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(4);
+    for (let i = 0; i < 2; i++) {
+      const component = store.getComponent(REAL_IDS[i].id);
+      expect(component).toBe(TEST_VALUES[i]);
+    }
+
+    for (let i = 0; i < 2; i++) {
+      const component = store.getComponent(i);
+      expect(component).toBe(TEST_VALUES[i]);
+    }
+  });
+
+  test('UpdateComponent with RealID', async () => {
+    const world = await stepWorldWith(
+      updateComponent<number>(x => x + 1, REAL_IDS[0])
+    );
+
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(2);
+
+    const changedComponent = store.getComponent(REAL_IDS[0].id);
+    expect(changedComponent).toBe(TEST_VALUES[0] + 1);
+
+    const unchangedComponent = store.getComponent(REAL_IDS[1].id);
+    expect(unchangedComponent).toBe(TEST_VALUES[1]);
+  });
+
+  test('UpdateComponents with RealIDs', async () => {
+    const world = await stepWorldWith(
+      updateComponents<number>(x => x + 1, REAL_IDS)
+    );
+
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(2);
+
+    for (let i = 0; i < 2; i++) {
+      const component = store.getComponent(REAL_IDS[i].id);
+      expect(component).toBe(TEST_VALUES[i] + 1);
+    }
+  });
+
+  test('UpdateAllComponents', async () => {
+    const world = await stepWorldWith(updateComponents<number>(x => x + 1));
+
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(2);
+
+    for (let i = 0; i < 2; i++) {
+      const component = store.getComponent(REAL_IDS[i].id);
+      expect(component).toBe(TEST_VALUES[i] + 1);
+    }
+  });
+
+  test('DeleteComponent with RealID', async () => {
+    const world = await stepWorldWith(deleteComponent(REAL_IDS[0]));
+
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(1);
+
+    expect(store.hasEntity(REAL_IDS[0].id)).false;
+    expect(store.hasEntity(REAL_IDS[1].id)).true;
+  });
+
+  test('DeleteComponents with RealIDs', async () => {
+    const world = await stepWorldWith(deleteComponents(REAL_IDS));
+
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(0);
+
+    expect(store.hasEntity(REAL_IDS[0].id)).false;
+    expect(store.hasEntity(REAL_IDS[1].id)).false;
+  });
+
+  test('DeleteAllComponentsWithName', async () => {
+    const world = await stepWorldWith(deleteAllComponents());
+
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(0);
+
+    expect(store.hasEntity(REAL_IDS[0].id)).false;
+    expect(store.hasEntity(REAL_IDS[1].id)).false;
   });
 });
 
