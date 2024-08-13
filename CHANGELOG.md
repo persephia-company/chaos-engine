@@ -1,5 +1,11 @@
 # @persephia/chaos-engine
 
+## 0.2.2
+
+### Patch Changes
+
+- e90b3c8: Allow for pinot logger to run without explicit dependency on process.env (for vite environments)
+
 ## 0.2.1
 
 ### Patch Changes
