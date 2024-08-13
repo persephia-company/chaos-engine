@@ -34,7 +34,7 @@ export const createTimerSystemForComponent = (
     });
 
     // Accumulate time on all timers
-    const timerTicks = new Intention().updateComponents<Timer<unknown>>(
+    const timerTicks = new Intention().updateAllComponents<Timer<unknown>>(
       componentName,
       timer => timer.tick()
     );

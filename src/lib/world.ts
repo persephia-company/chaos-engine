@@ -437,6 +437,10 @@ export class World implements WorldStore, WorldAPI<World> {
     logger.debug({msg: 'applySystemResults', intention});
 
     this.fixIntentionIds(intention);
+    logger.debug({
+      msg: 'applySystemResults with fixed intention ids',
+      intention,
+    });
 
     let result = this as World;
     for (const change of intention.extractRealChanges()) {

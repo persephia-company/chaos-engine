@@ -127,18 +127,11 @@ export class Intention {
       id = this.createID();
     }
 
-    const createChange = <T>(component: string, value: T) =>
-      ({
-        path: ['components', component],
-        value,
-        id,
-      }) as AddComponentChange<T, Entity>;
-
-    const changes = Object.entries(bundle).map(([component, value]) =>
-      createChange(component, value)
-    );
-
-    return this.addChanges(changes);
+    let result = this as Intention;
+    for (const [key, v] of Object.entries(bundle)) {
+      result = this.addComponent(key, v, id);
+    }
+    return result;
   }
 
   addComponent<T>(componentName: string, value: T, id?: Entity) {
@@ -222,14 +215,10 @@ export class Intention {
   updateComponents<T>(
     componentName: string,
     fn: (value: T) => T,
-    ids?: RealEntity[]
+    ids: RealEntity[]
   ): Intention {
-    if (ids === undefined) {
-      return this.addChange({
-        method: 'update',
-        path: ['components', componentName],
-        fn,
-      });
+    if (ids.length === 0) {
+      return this;
     }
 
     let result: Intention = this as Intention;
@@ -237,6 +226,17 @@ export class Intention {
       result = result.updateComponent(componentName, fn, id);
     }
     return result;
+  }
+
+  updateAllComponents<T>(
+    componentName: string,
+    fn: (value: T) => T
+  ): Intention {
+    return this.addChange({
+      method: 'update',
+      path: ['components', componentName],
+      fn,
+    });
   }
 
   addResource<T>(resourceName: string, value: T) {

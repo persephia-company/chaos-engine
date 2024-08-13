@@ -3,6 +3,7 @@ import {Intention} from './intention';
 import {ID, realID, hasRealIdOfValue, hasOffset} from '../entity';
 import {isComponentChange} from './change';
 import {UnbornEntity} from '@/types/entity';
+import {logger} from '../logger';
 
 describe('Intentions', () => {
   it('Should be empty when initialised', () => {
@@ -137,7 +138,7 @@ describe('Intentions', () => {
     ).true;
   });
 
-  it('Should allow bundles with relative ids', () => {
+  it('Should allow bundles with unborn ids', () => {
     const bundle = {
       hp: 10,
       armor: 'heavy',
@@ -150,7 +151,28 @@ describe('Intentions', () => {
         return isComponentChange(change) && hasOffset(change.id!, 1);
       })
     ).true;
-    expect(intention.generatedIds === 1).true;
+    expect(intention.generatedIds).toBe(1);
+  });
+
+  it('Bundles should leave other changes alone', () => {
+    const bundle = {
+      hp: 10,
+      armor: 'heavy',
+    };
+
+    const intention = new Intention()
+      .addComponent('test', 1)
+      .updateAllComponents<number>('test', x => x + 1)
+      .addBundle(bundle);
+    expect(intention.changes.length).toBe(4);
+    expect(intention.generatedIds).toBe(2);
+
+    // Expect that the lambda still exists and works
+    const updateChange = intention.changes[1];
+    // @ts-ignore
+    expect(updateChange.fn).exist;
+    // @ts-ignore
+    expect(intention.changes[1].fn(1)).toBe(2);
   });
 
   it('Adding a component without an id should create that id', () => {

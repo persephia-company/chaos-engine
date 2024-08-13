@@ -139,6 +139,23 @@ describe('Intentions', () => {
     expect(store.getComponent(1)).toBe(2);
     expect(idStore.hasEntity(0)).true;
   });
+
+  test("Applying an intention with a bundle shouldn't mess up anything", async () => {
+    const bundle = {
+      test: 1,
+      best: 2,
+    };
+    const intention = new Intention()
+      .addComponent('test', 2, ID.real(1))
+      .updateAllComponents<number>('test', x => x + 1)
+      .addBundle(bundle);
+
+    const world = createWorld().applyIntention(intention);
+
+    const store = world.getComponentStore<number>('test');
+    expect(store.length()).toBe(2);
+    expect(store.getComponent(1)).toBe(3);
+  });
 });
 
 describe('applyChange', () => {
@@ -246,11 +263,18 @@ describe('Test running basic systems of all intention API types', () => {
         .updateComponent(TEST_COMPONENT, fn, id);
 
   const updateComponents =
-    <T>(fn: (item: T) => T, ids?: RealEntity[]): System =>
+    <T>(fn: (item: T) => T, ids: RealEntity[]): System =>
     async () =>
       new Intention()
         .addComponents(TEST_COMPONENT, TEST_VALUES, REAL_IDS)
         .updateComponents(TEST_COMPONENT, fn, ids);
+
+  const updateAllComponents =
+    <T>(fn: (item: T) => T): System =>
+    async () =>
+      new Intention()
+        .addComponents(TEST_COMPONENT, TEST_VALUES, REAL_IDS)
+        .updateAllComponents(TEST_COMPONENT, fn);
 
   const deleteComponent =
     (id: RealEntity): System =>
@@ -431,7 +455,7 @@ describe('Test running basic systems of all intention API types', () => {
   });
 
   test('UpdateAllComponents', async () => {
-    const world = await stepWorldWith(updateComponents<number>(x => x + 1));
+    const world = await stepWorldWith(updateAllComponents<number>(x => x + 1));
 
     const store = world.getComponentStore<number>(TEST_COMPONENT);
     expect(store.length()).toBe(2);
@@ -470,6 +494,26 @@ describe('Test running basic systems of all intention API types', () => {
 
     expect(store.hasEntity(REAL_IDS[0].id)).false;
     expect(store.hasEntity(REAL_IDS[1].id)).false;
+  });
+
+  test('Adding a bundle doesnt screw up anything else', async () => {
+    const system: System = async () => {
+      const bundle = {
+        [TEST_COMPONENT]: 1,
+        best: 2,
+      };
+      return new Intention()
+        .addComponent(TEST_COMPONENT, TEST_VALUE, REAL_ID)
+        .updateAllComponents<number>(TEST_COMPONENT, x => x + 1)
+        .addBundle(bundle);
+    };
+
+    const world = createWorld().addSystem(system);
+    await world.step();
+
+    const store = world.getComponentStore<number>(TEST_COMPONENT);
+    expect(store.length()).toBe(2);
+    expect(store.getComponent(REAL_ID.id)).toBe(TEST_VALUE + 1);
   });
 });
 
