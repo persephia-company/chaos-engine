@@ -434,11 +434,11 @@ export class World implements WorldStore, WorldAPI<World> {
   applyIntention = (intention: Intention): World => {
     // NOTE: We could eventually make it so that all this does is add the raw results to the event queue.
     // Then all the remaining behaviour could be accomplished with systems...
-    logger.debug({msg: 'applySystemResults', intention});
+    logger.debug({msg: 'applyIntention', intention});
 
     this.fixIntentionIds(intention);
     logger.debug({
-      msg: 'applySystemResults with fixed intention ids',
+      msg: 'applyIntention with fixed intention ids',
       intention,
     });
 
