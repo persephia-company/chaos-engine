@@ -1,6 +1,7 @@
 import {Intention} from '@/lib/systems';
 import ComponentStore from './store';
 import {System} from './system';
+import {World} from '..';
 
 export type WorldStore = {
   components: Record<string, ComponentStore<unknown>>;
@@ -30,3 +31,5 @@ export interface WorldAPI<A> {
 }
 
 export type DataType = 'components' | 'events' | 'resources';
+
+export type Plugin = (world: World) => World;
