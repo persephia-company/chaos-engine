@@ -1,7 +1,6 @@
 import {World, ReservedStages} from '@/lib/world';
 import {describe, expect, test} from 'vitest';
 import {Intention, Plugins, System} from '../..';
-import {debugPlugin} from '.';
 
 const createWorld = () => {
   return new World().addPlugin(Plugins.corePlugin);

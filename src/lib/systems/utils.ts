@@ -36,3 +36,35 @@ export const requireEvents = (eventNames: string[], system: System): System => {
   // Force the returned system to have the same name as the incoming one.
   return nameSystem(system.name, result);
 };
+
+export const getStageBatchNames = (
+  stageBatches: Record<string, System[][]>
+): Record<string, string[][]> => {
+  return Object.entries(stageBatches)
+    .map(
+      ([stage, batches]) =>
+        [stage, batches.map(batch => batch.map(system => system.name))] as [
+          string,
+          string[][],
+        ]
+    )
+    .reduce((result, [stage, batches]) => {
+      return {...result, [stage]: batches};
+    }, {});
+};
+
+export const getSystemNames = (
+  stageBatches: Record<string, Set<System>>
+): Record<string, string[]> => {
+  return Object.entries(stageBatches)
+    .map(
+      ([stage, systems]) =>
+        [stage, Array.from(systems.values()).map(system => system.name)] as [
+          string,
+          string[],
+        ]
+    )
+    .reduce((result, [stage, batches]) => {
+      return {...result, [stage]: batches};
+    }, {});
+};

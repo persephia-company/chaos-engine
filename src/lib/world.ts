@@ -1,9 +1,6 @@
 import {ComponentStore} from '@/types/store';
 import {System} from '@/types/system';
 import {WorldAPI, WorldStore} from '@/types/world';
-import {Queue} from '@datastructures-js/queue';
-import {DepGraph} from 'dependency-graph';
-import stringify from 'json-stable-stringify';
 import * as R from 'ramda';
 import {SparseComponentStore} from './store';
 import {
@@ -12,10 +9,11 @@ import {
   isComponentChange,
   isResourceChange,
 } from './systems';
-import {groupBy, hash_cyrb53, objAssoc, objDelete, objUpdate} from './util';
+import {objAssoc, objDelete, objUpdate} from './util';
 import {logger} from './logger';
 import {Change, ComponentChange, ResourceChange} from '@/types/change';
 import {EntityID} from '..';
+import {batchByDepths, buildDependencyGraph, findDepths} from './dependencies';
 
 export const COMPONENTS = 'components';
 export const RESOURCES = 'resources';
@@ -29,8 +27,10 @@ export const ReservedKeys = {
   SYSTEM_DEPENDENCIES: 'system-dependencies',
   SYSTEM_DEPENDENCY_GRAPH: 'system-dependency-graph',
   SYSTEM_DEPENDENCY_HASH: 'system-dependency-hash',
-  SYSTEM_BATCHES: 'system-batches',
+  SYSTEM_CHANGES: 'system-changes',
+  STAGE_BATCHES: 'stage-batches',
   STAGE_DEPENDENCIES: 'stage-dependencies',
+  STAGE_CHANGES: 'stage-changes',
   RAW_CHANGES: 'raw-changes',
   MAX_ID: 'max-id',
   ENTITY_REVIVAL_STACK: 'entity-revival-stack',
@@ -117,8 +117,7 @@ export class World implements WorldStore, WorldAPI<World> {
   }
 
   setResource = <T>(key: string, value: T) => {
-    this.resources[key] = value;
-    return this;
+    return this.applyChange({method: 'set', path: ['resources', key], value});
   };
 
   getResourceOr = <T>(otherwise: T, key: string): T => {
@@ -176,7 +175,41 @@ export class World implements WorldStore, WorldAPI<World> {
     stageSystems.add(system);
 
     const updatedSystems = R.assoc(stage, stageSystems, systems);
-    return this.setResource(ReservedKeys.SYSTEMS, updatedSystems);
+
+    // Notify that the relevant stage has changed
+    const stageChanges = this.getResourceOr<Set<string>>(
+      new Set(),
+      ReservedKeys.STAGE_CHANGES
+    );
+    stageChanges.add(stage);
+
+    return this.setResource(ReservedKeys.SYSTEMS, updatedSystems).setResource(
+      ReservedKeys.STAGE_CHANGES,
+      stageChanges
+    );
+  }
+
+  deleteSystem(system: System, stage: string = ReservedStages.UPDATE) {
+    logger.debug({msg: 'Deleting System', system: system.name, stage});
+    const systems = this.getSystems();
+    const stageSystems: Set<System> = R.propOr(
+      new Set<System>(),
+      stage,
+      systems
+    );
+    stageSystems.delete(system);
+
+    const updatedSystems = R.assoc(stage, stageSystems, systems);
+
+    // Notify that the relevant stage has changed
+    const stageChanges = this.getResourceOr<Set<string>>(
+      new Set(),
+      ReservedKeys.STAGE_CHANGES
+    );
+    stageChanges.add(stage);
+
+    const result = this.setResource(ReservedKeys.SYSTEMS, updatedSystems);
+    return result.setResource(ReservedKeys.STAGE_CHANGES, stageChanges);
   }
 
   /**
@@ -196,6 +229,7 @@ export class World implements WorldStore, WorldAPI<World> {
       systemDependencies,
       dependencies
     );
+
     return this.setResource(
       ReservedKeys.SYSTEM_DEPENDENCIES,
       updatedDependencies
@@ -260,71 +294,46 @@ export class World implements WorldStore, WorldAPI<World> {
     return R.map(buildTuple, sharedIds) as T[];
   };
 
-  private buildSystemDependencyGraph = () => {
-    const systems = Object.values(this.getSystems())
-      .flatMap(s => Array.from(s.values()))
-      .map(system => system.name);
-
-    const dependencies = this.getSystemDependencies();
-    return buildDependencyGraph(systems, dependencies);
-  };
-
-  private hashSystems = (): number => {
-    const systems = Object.values(this.getSystems())
-      .flatMap(s => Array.from(s.values()))
-      .map(system => system.name);
-
-    const rawDependencies = this.getSystemDependencies();
-    const dependencies = Object.fromEntries(
-      Object.entries(rawDependencies).map(([node, deps]) => [
-        node,
-        Array.from(deps.values()),
-      ])
-    );
-    return hash_cyrb53(stringify({systems, dependencies}));
-  };
-
-  private isSystemGraphCurrent = (): boolean => {
-    return (
-      this.getResource(ReservedKeys.SYSTEM_DEPENDENCY_HASH) ===
-      this.hashSystems()
-    );
-  };
-
-  private buildStageBatches = (): Record<string, System[][]> => {
+  buildStageBatches = (stage: string): System[][] => {
     const systems = this.getSystems();
-    const graph = this.getResource(
-      ReservedKeys.SYSTEM_DEPENDENCY_GRAPH
-    ) as DepGraph<string>;
+    const systemDependencies = this.getSystemDependencies();
 
-    const buildStageBatch = (stage: string): System[][] => {
-      const stageSystems = Array.from((systems[stage] ?? new Set()).values());
-      const depths = findDepths(stageSystems, graph);
-      const systemsByDepth = groupBy(a => a[1], Object.entries(depths));
+    // A record of system names to the corresponding systems for this stage.
+    const systemsOfStage = Array.from(
+      (systems[stage] ?? new Set()).values()
+    ).reduce(
+      (result, system) => {
+        return {...result, [system.name]: system};
+      },
+      {} as Record<string, System>
+    );
+    //logger.info({
+    //  msg: 'Building stage batches',
+    //  stage,
+    //  systems,
+    //  systemsOfStage,
+    //});
 
-      const x = R.sortBy(
-        ([depth, _]) => Number.parseInt(depth),
-        Object.entries(systemsByDepth)
-      );
+    const systemNames = Object.keys(systemsOfStage);
 
-      const result: System[][] = [];
-      x.forEach(([_, group]) => {
-        const systems: System[] = [];
-        group.forEach(([name, _]) => {
-          const system = stageSystems.find(system => system.name === name);
-          if (system) {
-            systems.push(system);
-          }
-        });
-        result.push(systems);
-      });
-      return result;
-    };
+    const depths = findDepths(systemNames, systemDependencies);
+    return batchByDepths(depths).map(batch =>
+      batch.map(name => systemsOfStage[name])
+    );
+  };
 
-    const addStageBatch = (result: Record<string, System[][]>, stage: string) =>
-      R.assoc(stage, buildStageBatch(stage), result);
+  buildAllStageBatches = (): Record<string, System[][]> => {
+    const systems = this.getSystems();
 
-    return R.reduce(addStageBatch, {}, Object.keys(systems));
+    const stages = Object.keys(systems);
+    const batches = stages.reduce(
+      (result, stage) => {
+        return {...result, [stage]: this.buildStageBatches(stage)};
+      },
+      {} as Record<string, System[][]>
+    );
+    this.setResource(ReservedKeys.STAGE_BATCHES, batches);
+    return batches;
   };
 
   /**
@@ -352,62 +361,75 @@ export class World implements WorldStore, WorldAPI<World> {
     if (!systems) return;
 
     // Update the stage
-    let world = this.applyChange<string>({
-      path: ['resources', ReservedKeys.STAGE],
-      method: 'set',
-      value: stage,
-    });
+    let world = this.setResource(ReservedKeys.STAGE, stage);
 
-    // Check if system dependency graph is up to date
-    // Rebuild if needed
-    if (!world.isSystemGraphCurrent()) {
-      const graph = world.buildSystemDependencyGraph();
-      world = world.setResource(ReservedKeys.SYSTEM_DEPENDENCY_GRAPH, graph);
+    let stageBatches = world.getResource<Record<string, System[][]>>(
+      ReservedKeys.STAGE_BATCHES
+    );
 
-      const stageBatches = world.buildStageBatches();
-      world = world.setResource(ReservedKeys.SYSTEM_BATCHES, stageBatches);
+    if (stageBatches === undefined) {
+      stageBatches = world.buildAllStageBatches();
+      world = world.setResource(ReservedKeys.STAGE_BATCHES, stageBatches);
     }
 
-    const stageBatches = world.getResource(
-      ReservedKeys.SYSTEM_BATCHES
-    ) as Record<string, System[][]>;
+    await world.applyIndividualStage(ReservedStages.PRE_STAGE);
+    await world.applyIndividualStage(`pre-${stage}`);
+    await world.applyIndividualStage(stage);
+    await world.applyIndividualStage(`pre-${stage}`);
+    await world.applyIndividualStage(ReservedStages.POST_STAGE);
+  };
 
-    /**
-     * Helper function that ensures pre_batch and post_batch stages are run
-     * around each batch in the supplied stage.
-     */
-    const _applyStage = async (_stage: string, world: World) => {
-      const batches = stageBatches[_stage];
-      if (!batches) return world;
+  /**
+   * Helper function that ensures pre_batch and post_batch stages are run
+   * around each batch in the supplied stage.
+   */
+  private async applyIndividualStage(stage: string) {
+    const stageBatches = this.getResource<Record<string, System[][]>>(
+      ReservedKeys.STAGE_BATCHES
+    )!;
 
-      const applyBatchInterleaved = async (
-        world: World,
-        batch: System[]
-      ): Promise<World> => {
-        const batches = [
-          ...(stageBatches[ReservedStages.PRE_BATCH] ?? []),
-          batch,
-          ...(stageBatches[ReservedStages.POST_BATCH] ?? []),
-        ];
-        for (const batch of batches) {
-          world = await world.applySystemsBatch(batch);
-        }
-        return world;
-      };
+    const stageChanges = this.getResourceOr<Set<string>>(
+      new Set(),
+      ReservedKeys.STAGE_CHANGES
+    );
+
+    let batches = stageBatches[stage];
+    let world = this as World;
+
+    if (stageChanges.has(stage)) {
+      batches = this.buildStageBatches(stage);
+      stageChanges.delete(stage);
+      world = this.setResource(
+        ReservedKeys.STAGE_CHANGES,
+        stageChanges
+      ).setResource(ReservedKeys.STAGE_BATCHES, {
+        ...stageBatches,
+        [stage]: batches,
+      });
+    }
+    if (batches === undefined || batches.length === 0) return this;
+
+    const applyBatchInterleaved = async (
+      world: World,
+      batch: System[]
+    ): Promise<World> => {
+      const batches = [
+        ...(stageBatches[ReservedStages.PRE_BATCH] ?? []),
+        batch,
+        ...(stageBatches[ReservedStages.POST_BATCH] ?? []),
+      ];
 
       for (const batch of batches) {
-        world = await applyBatchInterleaved(world, batch);
+        world = await world.applySystemsBatch(batch);
       }
       return world;
     };
 
-    logger.debug(`PRE-STAGE ${stage}`);
-    await _applyStage(ReservedStages.PRE_STAGE, world);
-    logger.debug(`STAGE ${stage}`);
-    await _applyStage(stage, world);
-    logger.debug(`POST-STAGE ${stage}`);
-    await _applyStage(ReservedStages.POST_STAGE, world);
-  };
+    for (const batch of batches) {
+      world = await applyBatchInterleaved(world, batch);
+    }
+    return world;
+  }
 
   applySystem = async (system: System): Promise<Intention | void> => {
     logger.debug({msg: `applySystem: ${system.name}`, system: system.name});
@@ -592,50 +614,3 @@ export class World implements WorldStore, WorldAPI<World> {
     return result.setComponentStore(ReservedKeys.ID, idStore);
   }
 }
-
-const buildDependencyGraph = (
-  nodes: string[],
-  dependencies: Record<string, Set<string>>
-): DepGraph<string> => {
-  const result = new DepGraph<string>();
-  nodes.forEach(node => result.addNode(node));
-
-  Object.entries(dependencies).forEach(([node, deps]) => {
-    deps.forEach(dependency => result.addDependency(node, dependency));
-  });
-
-  return result;
-};
-
-const findDepths = (
-  systems: System[],
-  graph: DepGraph<string>
-): Record<string, number> => {
-  const systemNames = systems.map(system => system.name);
-  const leafSystems = systemNames.filter(
-    system => graph.directDependenciesOf(system).length === 0
-  );
-  const initialNodes = leafSystems.map(system => [system, 0]) as [
-    string,
-    number,
-  ][];
-
-  const q = new Queue(initialNodes);
-  const result: Record<string, number> = {};
-
-  const calculateDepth = (currentDepth: number, system: string) => {
-    return Math.max(currentDepth + 1, result[system] ?? 0);
-  };
-
-  while (!q.isEmpty()) {
-    const [system, depth] = q.dequeue();
-    const neighbours = graph.dependantsOf(system);
-    const nextNodes = neighbours.map(neighbour => [
-      neighbour,
-      calculateDepth(depth, neighbour),
-    ]) as [string, number][];
-    nextNodes.forEach(v => q.enqueue(v));
-    result[system] = depth;
-  }
-  return result;
-};

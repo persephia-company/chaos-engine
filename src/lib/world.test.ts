@@ -1,7 +1,15 @@
 import {ReservedKeys, World} from './world';
 import {range} from 'ramda';
 import {describe, expect, test} from 'vitest';
-import {Entity, Intention, Plugins, RealEntity, System, logger} from '..';
+import {
+  Entity,
+  EntityID,
+  Intention,
+  Plugins,
+  RealEntity,
+  System,
+  logger,
+} from '..';
 import {ReservedStages} from '@/lib/world';
 import {ID, realID} from './entity';
 
@@ -298,7 +306,9 @@ describe('Test running basic systems of all intention API types', () => {
   test('AddComponent with real ID', async () => {
     const world = await stepWorldWith(addComponent(TEST_VALUE, REAL_ID));
     const store = world.getComponentStore<number>(TEST_COMPONENT);
+    const idStore = world.getComponentStore<EntityID>(ReservedKeys.ID);
     expect(store.length()).toBe(1);
+    expect(idStore.hasEntity(REAL_ID.id)).true;
     const component = store.getComponent(REAL_ID.id);
     expect(component).toBe(TEST_VALUE);
   });
