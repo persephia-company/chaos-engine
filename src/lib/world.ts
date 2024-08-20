@@ -539,16 +539,19 @@ export class World implements WorldStore, WorldAPI<World> {
 
     // TODO: Cache this
     const graph = this.buildStageDependencyGraph();
+
+    // Get rid of all of the "special" reserved stages
     const stageOrder = graph
       .overallOrder()
       .filter(
-        stage => !(Object.values(ReservedStages) as string[]).includes(stage)
+        stage =>
+          stage === ReservedStages.UPDATE ||
+          !(Object.values(ReservedStages) as string[]).includes(stage)
       );
 
     logger.debug({msg: 'World pre step', this: this});
     const stages = [
       ReservedStages.PRE_STEP,
-      ReservedStages.UPDATE,
       ...stageOrder,
       ReservedStages.POST_STEP,
     ];

@@ -566,6 +566,21 @@ describe('Running The Game', () => {
     expect(rightOrder).true;
   });
 
+  test('Update is run once per step', async () => {
+    let count1 = 0;
+
+    const sys1: System = async () => {
+      count1 += 1;
+      return new Intention();
+    };
+
+    const world = new World().addSystem(sys1);
+    await world.step();
+
+    expect(satisfiesInvariant(world)).true;
+    expect(count1).toBe(1);
+  });
+
   test('Resources specified by system should be available to future systems', async () => {
     const setRes: System = async () => {
       return new Intention().setResource('X', 1);
