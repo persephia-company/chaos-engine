@@ -1,8 +1,8 @@
 import {System} from '@/types/system';
 import {getCreatedIds} from '../lib';
-import {ReservedKeys} from '@/lib/world';
 import {logger} from '@/lib/logger';
 import {Intention} from '@/lib/systems';
+import {ReservedKeys} from '@/lib/keys';
 
 /**
  * Keeps the maximum ID up to date when new ids are created.

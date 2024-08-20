@@ -1,5 +1,5 @@
 import {World} from '@/lib/world';
-import {ReservedStages} from '@/lib/world';
+import {ReservedStages} from '@/lib/keys';
 import {idRecyclingPlugin} from './idRecycling';
 import {changeEventPlugin} from './changeEvents';
 import {System} from '@/types/system';

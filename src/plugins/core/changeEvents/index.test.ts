@@ -1,4 +1,6 @@
-import {ReservedKeys, ReservedStages, World} from '@/lib/world';
+import {World} from '@/lib/world';
+
+import {ReservedKeys, ReservedStages} from '@/index';
 import {describe, expect, test} from 'vitest';
 import {Intention, Plugins, System, changeEventName, logger} from '@/index';
 import {logNewRawChanges} from './systems/debug';

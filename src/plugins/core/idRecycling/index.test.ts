@@ -1,10 +1,12 @@
-import {ReservedKeys, ReservedStages, World} from '@/lib/world';
+import {World} from '@/lib/world';
 import {describe, expect, test} from 'vitest';
 import {
   DeleteComponentChange,
   EntityID,
   Intention,
   Plugins,
+  ReservedKeys,
+  ReservedStages,
   System,
   changeEventName,
 } from '@/index';

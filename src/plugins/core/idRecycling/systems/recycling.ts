@@ -1,9 +1,9 @@
 import {Intention} from '@/lib/systems';
-import {ReservedKeys} from '@/lib/world';
 import {EntityID} from '@/types/entity';
 import {System} from '@/types/system';
 import {ID} from '@/lib/entity';
 import {getCreatedIds, getDeletedIDs} from '../lib';
+import {ReservedKeys} from '@/lib/keys';
 
 /**
  * Adds deleted entities to the revival queue to reclaim their id later.

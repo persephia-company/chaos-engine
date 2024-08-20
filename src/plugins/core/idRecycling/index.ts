@@ -1,7 +1,7 @@
 import {Plugin} from '@/types/world';
 import {reviveEntities, updateEntityRevivalQueue} from './systems/recycling';
 import {addChangeEvents} from '../changeEvents/systems/rawChangeEvents';
-import {ReservedStages} from '@/lib/world';
+import {ReservedStages} from '@/lib/keys';
 import {entityDeletionCleanup, executeEntities} from './systems/recycling';
 import {updateMaxID} from './systems/maxID';
 import {System} from '@/types/system';

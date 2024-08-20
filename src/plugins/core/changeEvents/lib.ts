@@ -1,5 +1,5 @@
 import {changeEventName} from '@/lib/systems';
-import {ReservedKeys} from '@/lib/world';
+import {ReservedKeys} from '@/index';
 import {
   AddComponentChange,
   Change,

@@ -1,4 +1,5 @@
-import {World, ReservedStages} from '@/lib/world';
+import {World} from '@/lib/world';
+import {ReservedStages} from '@/lib/keys';
 import {describe, expect, test} from 'vitest';
 import {Intention, Plugins, System} from '../..';
 

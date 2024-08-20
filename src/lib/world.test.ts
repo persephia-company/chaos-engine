@@ -1,4 +1,4 @@
-import {ReservedKeys, World} from './world';
+import {World} from './world';
 import {range} from 'ramda';
 import {describe, expect, test} from 'vitest';
 import {
@@ -7,10 +7,10 @@ import {
   Intention,
   Plugins,
   RealEntity,
+  ReservedKeys,
+  ReservedStages,
   System,
-  logger,
 } from '..';
-import {ReservedStages} from '@/lib/world';
 import {ID, realID} from './entity';
 
 const createWorld = () => {
@@ -54,8 +54,8 @@ describe('New Id checks', () => {
 });
 
 describe('System Tests', () => {
-  const sys1 = async (world: World) => new Intention();
-  const sys2 = async (world: World) => new Intention();
+  const sys1 = async () => new Intention();
+  const sys2 = async () => new Intention();
 
   test('Can add systems correctly', () => {
     let world = createWorld();

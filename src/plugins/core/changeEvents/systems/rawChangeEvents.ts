@@ -1,5 +1,5 @@
 import {Intention, isChangeEvent, isComponentChange} from '@/lib/systems';
-import {ReservedKeys} from '@/lib/world';
+import {ReservedKeys} from '@/index';
 import {System} from '@/types/system';
 import {Change} from '@/types/change';
 import {createChangeEvent, createIDChangeEvent} from '../lib';

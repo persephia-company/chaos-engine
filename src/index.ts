@@ -11,3 +11,4 @@ export {SparseComponentStore} from '@/lib/store';
 export * as Plugins from '@/plugins';
 export * as Util from '@/lib/util';
 export * from '@/lib/entity';
+export * from '@/lib/keys';

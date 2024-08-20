@@ -1,0 +1,30 @@
+export const ReservedKeys = {
+  ID: 'id',
+  STAGE: 'stage',
+  GAME_SHOULD_QUIT: 'game-should-quit',
+  SYSTEMS: 'systems',
+  SYSTEM_DEPENDENCIES: 'system-dependencies',
+  SYSTEM_DEPENDENCY_GRAPH: 'system-dependency-graph',
+  SYSTEM_DEPENDENCY_HASH: 'system-dependency-hash',
+  SYSTEM_CHANGES: 'system-changes',
+  STAGE_BATCHES: 'stage-batches',
+  STAGE_DEPENDENCIES: 'stage-dependencies',
+  STAGE_CHANGES: 'stage-changes',
+  RAW_CHANGES: 'raw-changes',
+  MAX_ID: 'max-id',
+  ENTITY_REVIVAL_STACK: 'entity-revival-stack',
+  ENTITY_DEATHS_DOORS: 'entity-deaths-door',
+  RAW_CHANGES_INDEX: 'raw-changes-index',
+} as const;
+
+export const ReservedStages = {
+  START_UP: 'start-up',
+  PRE_STEP: 'pre-step',
+  PRE_STAGE: 'pre-stage',
+  UPDATE: 'update',
+  PRE_BATCH: 'pre-batch',
+  POST_BATCH: 'post-batch',
+  POST_STAGE: 'post-stage',
+  POST_STEP: 'post-step',
+  TEAR_DOWN: 'tear-down',
+} as const;

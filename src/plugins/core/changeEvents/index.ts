@@ -1,4 +1,4 @@
-import {ReservedStages} from '@/lib/world';
+import {ReservedStages} from '@/index';
 import {Plugin} from '@/types/world';
 import {addChangeEvents, resetRawChangesIndex} from './systems/rawChangeEvents';
 import {addModifiedEvents} from './systems/modifiedEvents';

@@ -1,6 +1,6 @@
 import {logger} from '@/lib/logger';
 import {Intention, changeEventName} from '@/lib/systems';
-import {ReservedKeys, ReservedStages} from '@/lib/world';
+import {ReservedStages, ReservedKeys} from '@/lib/keys';
 import {SetResourceChange} from '@/types/change';
 import {System} from '@/types/system';
 import {Plugin} from '@/types/world';
