@@ -7,19 +7,15 @@ import {
   Plugins,
   System,
   changeEventName,
-  getStageBatchNames,
-  getSystemNames,
 } from '@/index';
 import {realID} from '@/lib/entity';
 import {logNewRawChanges} from '../changeEvents/systems/debug';
 import {resetEvents} from '..';
-import {getCreatedIds} from './lib';
 
 const createWorld = () => {
   return new World()
     .addPlugin(Plugins.corePlugin)
     .addSystem(logNewRawChanges, ReservedStages.POST_BATCH);
-  //.deleteSystem(resetEvents, ReservedStages.POST_STEP);
 };
 
 const COMPONENT = 'TEST';
@@ -28,41 +24,39 @@ const OTHER_ID = 1;
 const VALUE = 420;
 const OTHER_COMPONENT = 'WOOO';
 
-const dummySystem: System = async () => {};
-
-const addWithoutID: System = async (world: World) => {
+const addWithoutID: System = async () => {
   return new Intention().addComponent(COMPONENT, 1);
 };
 
-const setComponentWithRealID: System = async (world: World) => {
+const setComponentWithRealID: System = async () => {
   return new Intention().setComponent(COMPONENT, 1, realID(1));
 };
 
-const del: System = async (world: World) => {
+const del: System = async () => {
   return new Intention().deleteComponents(ReservedKeys.ID, [0, 1].map(realID));
 };
 
-const add: System = async (world: World) => {
+const add: System = async () => {
   return new Intention().addComponent(COMPONENT, VALUE, realID(ID));
 };
 
-const addOther: System = async (world: World) => {
+const addOther: System = async () => {
   return new Intention().addComponent(OTHER_COMPONENT, VALUE, realID(OTHER_ID));
 };
 
-const setId: System = async (world: World) => {
+const setId: System = async () => {
   return new Intention().setComponent(ReservedKeys.ID, ID, realID(ID));
 };
 
-const delId: System = async (world: World) => {
+const delId: System = async () => {
   return new Intention().deleteComponent(ReservedKeys.ID, realID(ID));
 };
 
-const deleteAllIds: System = async (world: World) => {
+const deleteAllIds: System = async () => {
   return new Intention().deleteAllComponentsOfName(ReservedKeys.ID);
 };
 
-const delComponent: System = async (world: World) => {
+const delComponent: System = async () => {
   return new Intention().deleteComponent(COMPONENT, realID(ID));
 };
 

@@ -2,10 +2,6 @@ import {World, ReservedStages} from '@/lib/world';
 import {describe, expect, test} from 'vitest';
 import {Intention, Plugins, System} from '../..';
 
-const createWorld = () => {
-  return new World().addPlugin(Plugins.corePlugin);
-};
-
 const satisfiesInvariant = (world: World) => {
   return world instanceof World;
 };

@@ -1,4 +1,3 @@
-import {logger} from '@/lib/logger';
 import {changeEventName} from '@/lib/systems';
 import {ReservedKeys, World} from '@/lib/world';
 import {
