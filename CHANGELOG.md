@@ -1,5 +1,11 @@
 # @persephia/chaos-engine
 
+## 0.2.3
+
+### Patch Changes
+
+- 2441dd8: Refactor of World and core plugins
+
 ## 0.2.2
 
 ### Patch Changes
