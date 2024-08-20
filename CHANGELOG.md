@@ -1,5 +1,12 @@
 # @persephia/chaos-engine
 
+## 0.2.4
+
+### Patch Changes
+
+- a180c14: Allow users to specify that other stages should run before update.
+- ac0f99c: Move reserved keys and stages into their own lib file.
+
 ## 0.2.3
 
 ### Patch Changes
